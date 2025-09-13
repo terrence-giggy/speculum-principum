@@ -1,1 +1,3 @@
-# speculum-principis
+# speculum-principum
+
+Mirror for Princes
