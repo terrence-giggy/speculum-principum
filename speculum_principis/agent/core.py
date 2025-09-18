@@ -31,8 +31,9 @@ class SpeculumAgent:
     """
     Main agent class that coordinates monitoring, analysis, and storage.
     
-    The agent runs continuously, checking various internet sources for new content,
-    analyzing it for relevance to study subjects, and storing interesting findings.
+    The agent runs a single monitoring cycle per execution, checking various 
+    internet sources for new content, analyzing it for relevance to study subjects, 
+    and storing interesting findings.
     """
 
     def __init__(self, config: Optional[Config] = None):
@@ -46,8 +47,9 @@ class SpeculumAgent:
         self.db_manager = DatabaseManager(self.config)
         
         # State tracking
-        self.is_running = False
         self.last_run = None
+        self.is_running = False
+        self.start_time = None
         self.stats = {
             "total_runs": 0,
             "total_content_analyzed": 0,
@@ -55,42 +57,38 @@ class SpeculumAgent:
             "errors": 0
         }
 
-    async def start(self):
-        """Start the agent monitoring process."""
-        self.logger.info("Starting Speculum Principis agent...")
+    async def run_once(self):
+        """Run a single monitoring cycle and exit."""
+        self.logger.info("Starting Speculum Principis agent (single run)...")
+        
+        # Set running state
         self.is_running = True
+        if not self.start_time:
+            self.start_time = datetime.now()
         
         # Initialize database
         await self.db_manager.initialize()
         
-        # Start monitoring loop
-        await self._monitoring_loop()
-
-    async def stop(self):
-        """Stop the agent monitoring process."""
-        self.logger.info("Stopping Speculum Principis agent...")
-        self.is_running = False
-
-    async def _monitoring_loop(self):
-        """Main monitoring loop that runs continuously."""
-        while self.is_running:
-            try:
-                result = await self._run_monitoring_cycle()
-                self._update_stats(result)
-                self.last_run = datetime.now()
-                
-                self.logger.info(
-                    f"Monitoring cycle completed: {result.content_items_found} items found, "
-                    f"{result.relevant_subjects} relevant subjects identified"
-                )
-                
-                # Wait for next cycle
-                await asyncio.sleep(self.config.monitor_interval * 60)
-                
-            except Exception as e:
-                self.logger.error(f"Error in monitoring loop: {e}")
-                self.stats["errors"] += 1
-                await asyncio.sleep(60)  # Wait 1 minute before retrying
+        # Run single monitoring cycle
+        try:
+            result = await self._run_monitoring_cycle()
+            self._update_stats(result)
+            self.last_run = datetime.now()
+            
+            self.logger.info(
+                f"Monitoring cycle completed: {result.content_items_found} items found, "
+                f"{result.relevant_subjects} relevant subjects identified"
+            )
+            
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"Error in monitoring cycle: {e}")
+            self.stats["errors"] += 1
+            raise
+        finally:
+            # Reset running state
+            self.is_running = False
 
     async def _run_monitoring_cycle(self) -> MonitoringResult:
         """Run a single monitoring cycle."""
@@ -164,12 +162,13 @@ class SpeculumAgent:
 
     def get_stats(self) -> Dict[str, Any]:
         """Get agent statistics."""
+        uptime_minutes = 0
+        if self.start_time:
+            uptime_minutes = (datetime.now() - self.start_time).total_seconds() / 60
+            
         return {
             **self.stats,
-            "is_running": self.is_running,
             "last_run": self.last_run.isoformat() if self.last_run else None,
-            "uptime_minutes": (
-                (datetime.now() - self.last_run).total_seconds() / 60
-                if self.last_run else 0
-            )
+            "is_running": self.is_running,
+            "uptime_minutes": uptime_minutes,
         }
