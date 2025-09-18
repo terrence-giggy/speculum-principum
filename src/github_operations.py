@@ -1,0 +1,103 @@
+"""
+GitHub Operations Module
+Handles GitHub API operations for Speculum Principum
+"""
+
+from github import Github
+from github.GithubException import GithubException
+from typing import List, Optional
+
+
+class GitHubIssueCreator:
+    """Handles creation of GitHub issues"""
+    
+    def __init__(self, token: str, repository: str):
+        """
+        Initialize the GitHub issue creator
+        
+        Args:
+            token: GitHub personal access token
+            repository: Repository name in format 'owner/repo'
+        """
+        self.github = Github(token)
+        self.repository = repository
+        self.repo = self.github.get_repo(repository)
+    
+    def create_issue(
+        self, 
+        title: str, 
+        body: str = "", 
+        labels: Optional[List[str]] = None, 
+        assignees: Optional[List[str]] = None
+    ):
+        """
+        Create a new GitHub issue
+        
+        Args:
+            title: Issue title
+            body: Issue description/body
+            labels: List of label names to apply
+            assignees: List of usernames to assign
+            
+        Returns:
+            Created issue object
+            
+        Raises:
+            GithubException: If issue creation fails
+        """
+        try:
+            # Validate labels exist in the repository
+            if labels:
+                repo_labels = [label.name for label in self.repo.get_labels()]
+                invalid_labels = [label for label in labels if label not in repo_labels]
+                if invalid_labels:
+                    print(f"Warning: Labels not found in repository: {invalid_labels}")
+                    labels = [label for label in labels if label in repo_labels]
+            
+            # Create the issue
+            issue = self.repo.create_issue(
+                title=title,
+                body=body,
+                labels=labels or [],
+                assignees=assignees or []
+            )
+            
+            return issue
+            
+        except GithubException as e:
+            raise RuntimeError(f"Failed to create GitHub issue: {e.data.get('message', str(e))}") from e
+        except Exception as e:
+            raise RuntimeError(f"Unexpected error creating issue: {str(e)}") from e
+    
+    def get_repository_info(self):
+        """Get basic repository information"""
+        try:
+            return {
+                'name': self.repo.name,
+                'full_name': self.repo.full_name,
+                'description': self.repo.description,
+                'url': self.repo.html_url,
+                'issues_count': self.repo.open_issues_count
+            }
+        except GithubException as e:
+            raise RuntimeError(f"Failed to get repository info: {e.data.get('message', str(e))}") from e
+
+
+class GitHubOperations:
+    """
+    Main class for GitHub operations
+    Can be extended for additional operations beyond issue creation
+    """
+    
+    def __init__(self, token: str, repository: str):
+        self.token = token
+        self.repository = repository
+        self.issue_creator = GitHubIssueCreator(token, repository)
+    
+    def create_issue(self, **kwargs):
+        """Wrapper for issue creation"""
+        return self.issue_creator.create_issue(**kwargs)
+    
+    def get_repo_info(self):
+        """Wrapper for repository info"""
+        return self.issue_creator.get_repository_info()

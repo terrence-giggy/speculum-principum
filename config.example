@@ -1,0 +1,28 @@
+# Speculum Principum Configuration
+
+# This file contains example configurations and settings for the Speculum Principum application.
+# Copy values to your .env file or set as environment variables.
+
+# GitHub API Configuration
+# GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+# GITHUB_REPOSITORY=owner/repository-name
+
+# Optional: Custom API endpoint (for GitHub Enterprise)
+# GITHUB_API_URL=https://api.github.com
+
+# Optional: Timeout settings (in seconds)
+# GITHUB_API_TIMEOUT=30
+
+# Logging Configuration
+# LOG_LEVEL=INFO
+# LOG_FORMAT=%(asctime)s - %(name)s - %(levelname)s - %(message)s
+
+# Default Issue Configuration
+# DEFAULT_ISSUE_LABELS=automated,bot-created
+# DEFAULT_ASSIGNEE=repository-maintainer
+
+# Scheduled Operations Configuration
+# STANDUP_TIME=09:00
+# STANDUP_TIMEZONE=UTC
+# WEEKLY_REVIEW_DAY=monday
+# MONTHLY_REPORT_DAY=1
