@@ -1,0 +1,81 @@
+name: Create Issue
+
+on:
+  workflow_dispatch:
+    inputs:
+      title:
+        description: 'Issue title'
+        required: true
+        type: string
+      body:
+        description: 'Issue description/body'
+        required: false
+        type: string
+        default: ''
+      labels:
+        description: 'Comma-separated list of labels'
+        required: false
+        type: string
+        default: ''
+      assignees:
+        description: 'Comma-separated list of assignees'
+        required: false
+        type: string
+        default: ''
+  
+  # Optionally trigger on schedule (commented out by default)
+  # schedule:
+  #   - cron: '0 9 * * 1'  # Every Monday at 9 AM UTC
+
+jobs:
+  create-issue:
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
+      issues: write
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Parse labels and assignees
+      id: parse_inputs
+      run: |
+        # Parse comma-separated labels
+        if [ -n "${{ github.event.inputs.labels }}" ]; then
+          labels=$(echo "${{ github.event.inputs.labels }}" | tr ',' ' ')
+          echo "labels_args=--labels $labels" >> $GITHUB_OUTPUT
+        else
+          echo "labels_args=" >> $GITHUB_OUTPUT
+        fi
+        
+        # Parse comma-separated assignees
+        if [ -n "${{ github.event.inputs.assignees }}" ]; then
+          assignees=$(echo "${{ github.event.inputs.assignees }}" | tr ',' ' ')
+          echo "assignees_args=--assignees $assignees" >> $GITHUB_OUTPUT
+        else
+          echo "assignees_args=" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Create GitHub Issue
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+      run: |
+        python main.py create-issue \
+          --title "${{ github.event.inputs.title }}" \
+          --body "${{ github.event.inputs.body }}" \
+          ${{ steps.parse_inputs.outputs.labels_args }} \
+          ${{ steps.parse_inputs.outputs.assignees_args }}
