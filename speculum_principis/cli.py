@@ -44,27 +44,37 @@ def main(ctx, config: Optional[str], verbose: bool):
 
 @main.command()
 @click.pass_context
-def start(ctx):
-    """Start the monitoring agent."""
+def run(ctx):
+    """Run a single monitoring cycle."""
     config = ctx.obj['config']
-    click.echo("Starting Speculum Principis agent...")
+    click.echo("Running Speculum Principis agent (single cycle)...")
     click.echo(f"Configuration: {config}")
     
     async def run_agent():
         agent = SpeculumAgent(config)
         try:
-            await agent.start()
-        except KeyboardInterrupt:
-            click.echo("\nShutting down agent...")
-            await agent.stop()
+            result = await agent.run_once()
+            
+            click.echo(f"\nMonitoring cycle completed:")
+            click.echo(f"  Sources checked: {result.sources_checked}")
+            click.echo(f"  Content items found: {result.content_items_found}")
+            click.echo(f"  Relevant subjects: {result.relevant_subjects}")
+            
+            if result.errors:
+                click.echo(f"  Errors: {len(result.errors)}")
+                for error in result.errors:
+                    click.echo(f"    - {error}")
+                    
         except Exception as e:
             click.echo(f"Error running agent: {e}", err=True)
             logging.error(f"Agent error: {e}")
+            raise
     
     try:
         asyncio.run(run_agent())
-    except KeyboardInterrupt:
-        click.echo("\nAgent stopped.")
+    except Exception as e:
+        click.echo(f"Agent execution failed: {e}", err=True)
+        ctx.exit(1)
 
 
 @main.command()
@@ -187,7 +197,6 @@ def stats(ctx):
         click.echo(f"  Recent subjects (7 days): {db_stats.get('recent_subjects', 0)}")
         
         click.echo("\nAgent:")
-        click.echo(f"  Status: {'Running' if agent_stats['is_running'] else 'Stopped'}")
         click.echo(f"  Total runs: {agent_stats['total_runs']}")
         click.echo(f"  Content analyzed: {agent_stats['total_content_analyzed']}")
         click.echo(f"  Subjects found: {agent_stats['total_subjects_found']}")
@@ -242,10 +251,9 @@ def test(ctx):
     
     async def test_cycle():
         agent = SpeculumAgent(config)
-        await agent.db_manager.initialize()
         
         # Run a single monitoring cycle
-        result = await agent._run_monitoring_cycle()
+        result = await agent.run_once()
         
         click.echo(f"\nTest cycle completed:")
         click.echo(f"  Sources checked: {result.sources_checked}")
