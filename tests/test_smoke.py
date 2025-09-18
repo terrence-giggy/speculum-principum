@@ -5,7 +5,7 @@ Simple smoke tests to validate the test suite setup
 import pytest
 import sys
 import os
-
+from urllib.parse import urlparse
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
@@ -41,7 +41,7 @@ class TestTestSuite:
         """Test that GitHub issue mock fixture works"""
         assert mock_github_issue.number == 123
         assert mock_github_issue.title == "Test Issue"
-        assert "github.com" in mock_github_issue.html_url
+        assert urlparse(mock_github_issue.html_url).hostname == "github.com"
     
     @pytest.mark.unit
     def test_unit_test_marker(self):
