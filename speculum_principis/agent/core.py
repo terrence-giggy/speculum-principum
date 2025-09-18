@@ -48,6 +48,8 @@ class SpeculumAgent:
         
         # State tracking
         self.last_run = None
+        self.is_running = False
+        self.start_time = None
         self.stats = {
             "total_runs": 0,
             "total_content_analyzed": 0,
@@ -58,6 +60,11 @@ class SpeculumAgent:
     async def run_once(self):
         """Run a single monitoring cycle and exit."""
         self.logger.info("Starting Speculum Principis agent (single run)...")
+        
+        # Set running state
+        self.is_running = True
+        if not self.start_time:
+            self.start_time = datetime.now()
         
         # Initialize database
         await self.db_manager.initialize()
@@ -79,6 +86,9 @@ class SpeculumAgent:
             self.logger.error(f"Error in monitoring cycle: {e}")
             self.stats["errors"] += 1
             raise
+        finally:
+            # Reset running state
+            self.is_running = False
 
     async def _run_monitoring_cycle(self) -> MonitoringResult:
         """Run a single monitoring cycle."""
@@ -152,7 +162,13 @@ class SpeculumAgent:
 
     def get_stats(self) -> Dict[str, Any]:
         """Get agent statistics."""
+        uptime_minutes = 0
+        if self.start_time:
+            uptime_minutes = (datetime.now() - self.start_time).total_seconds() / 60
+            
         return {
             **self.stats,
             "last_run": self.last_run.isoformat() if self.last_run else None,
+            "is_running": self.is_running,
+            "uptime_minutes": uptime_minutes,
         }
