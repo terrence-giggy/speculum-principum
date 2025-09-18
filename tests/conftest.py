@@ -7,6 +7,7 @@ from unittest.mock import Mock, MagicMock
 from github import Github
 from github.Repository import Repository
 from github.Issue import Issue
+from github.GithubException import GithubException
 
 
 @pytest.fixture
@@ -131,17 +132,16 @@ def cli_args_minimal():
     ]
 
 
-class MockGitHubException(Exception):
-    """Mock GitHub exception for testing error handling"""
-    def __init__(self, message="Mock GitHub API error", data=None):
-        super().__init__(message)
-        self.data = data or {"message": message}
+class MockGitHubException(GithubException):
+    """Mock GitHub exception for testing"""
+    def __init__(self, message):
+        super().__init__(status=400, data={"message": message})
 
 
 @pytest.fixture
 def mock_github_exception():
     """Mock GitHub exception"""
-    return MockGitHubException("API rate limit exceeded", {"message": "API rate limit exceeded"})
+    return MockGitHubException("API rate limit exceeded")
 
 
 @pytest.fixture

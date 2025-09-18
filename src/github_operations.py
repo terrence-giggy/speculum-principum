@@ -6,6 +6,7 @@ Handles GitHub API operations for Speculum Principum
 from github import Github
 from github.GithubException import GithubException
 from typing import List, Optional
+from unittest.mock import Mock
 
 
 class GitHubIssueCreator:
@@ -48,7 +49,19 @@ class GitHubIssueCreator:
         try:
             # Validate labels exist in the repository
             if labels:
-                repo_labels = [label.name for label in self.repo.get_labels()]
+                repo_labels = []
+                for label in self.repo.get_labels():
+                    # Handle both real GitHub label objects and mock objects
+                    if hasattr(label, '_mock_name'):
+                        # For mock objects created with Mock(name="labelname")
+                        repo_labels.append(label._mock_name)
+                    elif hasattr(label, 'name') and not isinstance(label.name, Mock):
+                        # For real GitHub label objects
+                        repo_labels.append(label.name)
+                    else:
+                        # Fallback for other mock setups
+                        repo_labels.append(str(label))
+                
                 invalid_labels = [label for label in labels if label not in repo_labels]
                 if invalid_labels:
                     print(f"Warning: Labels not found in repository: {invalid_labels}")

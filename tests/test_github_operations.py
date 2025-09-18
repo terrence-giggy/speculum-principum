@@ -187,7 +187,8 @@ class TestGitHubIssueCreator:
         
         # Configure exception
         github_exception = MockGitHubException("Repository not found")
-        mock_repo.name = property(lambda x: (_ for _ in ()).throw(github_exception))
+        # Use type() to set the property on the mock's class
+        type(mock_repo).name = property(lambda self: (_ for _ in ()).throw(github_exception))
         
         # Create instance and test
         creator = GitHubIssueCreator(mock_github_token, mock_repository_name)
