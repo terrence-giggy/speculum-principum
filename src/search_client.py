@@ -336,6 +336,11 @@ def normalize_url(url: str) -> str:
     try:
         parsed = urlparse(url.lower())
         
+        # Check if this is actually a valid URL (has scheme and netloc, or at least netloc)
+        if not parsed.netloc and not parsed.scheme:
+            # This is likely not a valid URL, just return lowercase
+            return url.lower()
+        
         # Remove common tracking parameters
         tracking_params = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 
                           'fbclid', 'gclid', 'ref', 'source']

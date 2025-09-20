@@ -16,38 +16,6 @@ from src.search_client import SearchResult
 class TestSiteMonitorService:
     """Test the SiteMonitorService class"""
     
-    @pytest.fixture
-    def sample_config(self):
-        """Fixture providing a sample configuration"""
-        sites = [
-            SiteConfig(
-                url="example.com",
-                name="Example Site",
-                keywords=["documentation"],
-                max_results=10
-            )
-        ]
-        
-        github = GitHubConfig(
-            repository="owner/repo",
-            issue_labels=["site-monitor"],
-            default_assignees=[]
-        )
-        
-        search = SearchConfig(
-            api_key="test-key",
-            search_engine_id="test-engine",
-            daily_query_limit=90
-        )
-        
-        return MonitorConfig(
-            sites=sites,
-            github=github,
-            search=search,
-            storage_path="test_processed.json",
-            log_level="INFO"
-        )
-    
     @patch('src.site_monitor.GoogleCustomSearchClient')
     @patch('src.site_monitor.DeduplicationManager')
     @patch('src.site_monitor.SiteMonitorIssueCreator')
@@ -107,16 +75,19 @@ class TestSiteMonitorService:
         }
         
         # Setup deduplication (all results are new)
-        mock_dedup_instance.filter_new_results.return_value = test_results
+        mock_dedup_instance.filter_new_results.side_effect = lambda results, site_name: results
         mock_dedup_instance.get_processed_stats.return_value = {
             'total_entries': 0,
             'entries_by_site': {},
             'entries_with_issues': 0
         }
+        mock_dedup_instance.mark_result_processed.return_value = Mock()  # Mock ProcessedEntry
+        mock_dedup_instance.save_processed_entries.return_value = None
         
         # Setup GitHub issue creation
         mock_issue = Mock()
         mock_issue.number = 123
+        mock_issue.title = "Site Update: Example Site - New Documentation Found"  # Set title as string, not Mock
         mock_github_instance.create_site_update_issue.return_value = mock_issue
         
         mock_summary_issue = Mock()
@@ -457,8 +428,8 @@ class TestFilterAndProcessing:
         assert len(new_results["Site B"]) == 0
         assert len(new_results["Site C"]) == 0
         
-        # Verify filter was called for each site
-        assert mock_dedup_instance.filter_new_results.call_count == 3
+        # Verify filter was called only for sites with results (Site A and Site B, not Site C which is empty)
+        assert mock_dedup_instance.filter_new_results.call_count == 2
     
     @patch('src.site_monitor.GoogleCustomSearchClient')
     @patch('src.site_monitor.DeduplicationManager')
