@@ -8,6 +8,7 @@ from github import Github
 from github.Repository import Repository
 from github.Issue import Issue
 from github.GithubException import GithubException
+from src.config_manager import MonitorConfig, SiteConfig, GitHubConfig, SearchConfig
 
 
 @pytest.fixture
@@ -148,3 +149,36 @@ def mock_github_exception():
 def mock_issue_creation_response(mock_github_issue):
     """Mock successful issue creation response"""
     return mock_github_issue
+
+
+@pytest.fixture
+def sample_config():
+    """Fixture providing a sample configuration"""
+    sites = [
+        SiteConfig(
+            url="example.com",
+            name="Example Site",
+            keywords=["documentation"],
+            max_results=10
+        )
+    ]
+    
+    github = GitHubConfig(
+        repository="owner/repo",
+        issue_labels=["site-monitor"],
+        default_assignees=[]
+    )
+    
+    search = SearchConfig(
+        api_key="test-key",
+        search_engine_id="test-engine",
+        daily_query_limit=90
+    )
+    
+    return MonitorConfig(
+        sites=sites,
+        github=github,
+        search=search,
+        storage_path="test_processed.json",
+        log_level="INFO"
+    )
