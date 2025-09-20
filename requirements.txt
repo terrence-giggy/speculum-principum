@@ -2,6 +2,19 @@ requests>=2.31.0
 PyGithub>=1.59.1
 python-dotenv>=1.0.0
 
+# Google API dependencies
+google-api-python-client>=2.100.0
+google-auth>=2.23.0
+google-auth-oauthlib>=1.1.0
+google-auth-httplib2>=0.1.1
+
+# Configuration and data handling
+PyYAML>=6.0.1
+jsonschema>=4.19.0
+
+# Date/time handling
+python-dateutil>=2.8.2
+
 # Testing dependencies
 pytest>=7.4.0
 pytest-cov>=4.1.0
