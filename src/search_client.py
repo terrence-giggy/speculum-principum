@@ -247,7 +247,12 @@ class GoogleCustomSearchClient:
         
         try:
             parsed_url = urlparse(result.link)
-            parsed_site = urlparse(site_config.url)
+            
+            # Handle site_config.url which may or may not have a scheme
+            site_url = site_config.url
+            if not site_url.startswith(('http://', 'https://')):
+                site_url = 'https://' + site_url
+            parsed_site = urlparse(site_url)
             
             # Extract domain names for comparison
             result_domain = parsed_url.netloc.lower()

@@ -3,7 +3,7 @@ GitHub Operations Module
 Handles GitHub API operations for Speculum Principum
 """
 
-from github import Github
+from github import Github, Auth
 from github.GithubException import GithubException
 from typing import List, Optional
 from unittest.mock import Mock
@@ -20,7 +20,7 @@ class GitHubIssueCreator:
             token: GitHub personal access token
             repository: Repository name in format 'owner/repo'
         """
-        self.github = Github(token)
+        self.github = Github(auth=Auth.Token(token))
         self.repository = repository
         self.repo = self.github.get_repo(repository)
     

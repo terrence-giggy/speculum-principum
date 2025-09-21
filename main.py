@@ -59,17 +59,13 @@ def main():
         print("Error: GITHUB_TOKEN environment variable is required", file=sys.stderr)
         sys.exit(1)
         
-    if not repo_name and args.command != 'create-issue':
-        print("Error: GITHUB_REPOSITORY environment variable is required for monitoring commands", file=sys.stderr)
+    if not repo_name:
+        print("Error: GITHUB_REPOSITORY environment variable is required", file=sys.stderr)
         sys.exit(1)
     
     try:
         if args.command == 'create-issue':
             # Legacy issue creation
-            if not repo_name:
-                print("Error: GITHUB_REPOSITORY environment variable is required", file=sys.stderr)
-                sys.exit(1)
-                
             creator = GitHubIssueCreator(github_token, repo_name)
             issue = creator.create_issue(
                 title=args.title,

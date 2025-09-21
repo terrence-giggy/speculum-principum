@@ -17,7 +17,8 @@ import main
 class TestMainApplication:
     """Test cases for main application entry point"""
     
-    def test_main_missing_github_token(self, monkeypatch, capsys):
+    @patch('main.load_dotenv')
+    def test_main_missing_github_token(self, mock_load_dotenv, monkeypatch, capsys):
         """Test main function with missing GITHUB_TOKEN"""
         # Remove GITHUB_TOKEN from environment
         monkeypatch.delenv("GITHUB_TOKEN", raising=False)
@@ -35,7 +36,8 @@ class TestMainApplication:
         captured = capsys.readouterr()
         assert "Error: GITHUB_TOKEN environment variable is required" in captured.err
     
-    def test_main_missing_github_repository(self, monkeypatch, capsys):
+    @patch('main.load_dotenv')
+    def test_main_missing_github_repository(self, mock_load_dotenv, monkeypatch, capsys):
         """Test main function with missing GITHUB_REPOSITORY"""
         # Set GITHUB_TOKEN but remove GITHUB_REPOSITORY
         monkeypatch.setenv("GITHUB_TOKEN", "test_token")
