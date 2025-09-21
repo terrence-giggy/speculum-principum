@@ -51,14 +51,12 @@ class SiteMonitorService:
         logging.getLogger().setLevel(getattr(logging, config.log_level))
         logger.info(f"Initialized SiteMonitorService for repository: {config.github.repository}")
     
-    def run_monitoring_cycle(self, create_individual_issues: bool = True,
-                           create_summary_issue: bool = True) -> Dict[str, Any]:
+    def run_monitoring_cycle(self, create_individual_issues: bool = True) -> Dict[str, Any]:
         """
         Run a complete monitoring cycle
         
         Args:
-            create_individual_issues: Whether to create individual issues for each site
-            create_summary_issue: Whether to create a daily summary issue
+            create_individual_issues: Whether to create individual issues for each result
             
         Returns:
             Dictionary with monitoring results and statistics
@@ -81,20 +79,12 @@ class SiteMonitorService:
                 logger.info("Step 3: Creating individual GitHub issues")
                 individual_issues = self._create_individual_issues(new_results)
             
-            # Step 4: Create summary issue
-            summary_issue = None
-            if create_summary_issue:
-                logger.info("Step 4: Creating daily summary issue")
-                search_summary = create_search_summary(all_search_results)
-                search_summary['api_calls_made'] = self.search_client.get_rate_limit_status()['calls_made_today']
-                summary_issue = self._create_summary_issue(all_search_results, search_summary)
-            
-            # Step 5: Mark results as processed
-            logger.info("Step 5: Marking results as processed")
+            # Step 4: Mark results as processed
+            logger.info("Step 4: Marking results as processed")
             processed_entries = self._mark_results_processed(new_results, individual_issues)
             
-            # Step 6: Save deduplication data
-            logger.info("Step 6: Saving deduplication data")
+            # Step 5: Save deduplication data
+            logger.info("Step 5: Saving deduplication data")
             self.dedup_manager.save_processed_entries()
             
             # Calculate cycle statistics
@@ -112,8 +102,6 @@ class SiteMonitorService:
                 'total_search_results': sum(len(results) for results in all_search_results.values()),
                 'new_results_found': total_new_results,
                 'individual_issues_created': len(individual_issues),
-                'summary_issue_created': summary_issue is not None,
-                'summary_issue_number': summary_issue.number if summary_issue else None,
                 'individual_issue_numbers': [issue.number for issue in individual_issues],
                 'rate_limit_status': self.search_client.get_rate_limit_status(),
                 'deduplication_stats': self.dedup_manager.get_processed_stats(),
@@ -148,70 +136,60 @@ class SiteMonitorService:
         return new_results
     
     def _create_individual_issues(self, new_results: Dict[str, List[SearchResult]]) -> List[Any]:
-        """Create individual GitHub issues for sites with new results"""
+        """Create individual GitHub issues for each search result"""
         issues = []
         
         for site_name, results in new_results.items():
             if not results:
                 continue
             
-            try:
-                issue = self.github_client.create_site_update_issue(
-                    site_name=site_name,
-                    results=results,
-                    labels=self.config.github.issue_labels
-                )
-                issues.append(issue)
-                logger.info(f"Created issue #{issue.number} for {site_name} with {len(results)} results")
-                
-            except Exception as e:
-                logger.error(f"Failed to create issue for site {site_name}: {e}")
-                continue
+            for result in results:
+                try:
+                    issue = self.github_client.create_individual_result_issue(
+                        site_name=site_name,
+                        result=result,
+                        labels=self.config.github.issue_labels
+                    )
+                    issues.append(issue)
+                    logger.info(f"Created issue #{issue.number} for {site_name}: {result.title[:50]}...")
+                    
+                except Exception as e:
+                    logger.error(f"Failed to create issue for result from {site_name}: {e}")
+                    continue
         
         return issues
-    
-    def _create_summary_issue(self, all_results: Dict[str, List[SearchResult]], 
-                            search_summary: Dict[str, Any]) -> Optional[Any]:
-        """Create daily summary issue"""
-        try:
-            issue = self.github_client.create_daily_summary_issue(
-                all_results=all_results,
-                search_summary=search_summary,
-                labels=self.config.github.issue_labels
-            )
-            logger.info(f"Created daily summary issue #{issue.number}")
-            return issue
-            
-        except Exception as e:
-            logger.error(f"Failed to create summary issue: {e}")
-            return None
     
     def _mark_results_processed(self, new_results: Dict[str, List[SearchResult]], 
                               individual_issues: List[Any]) -> List[ProcessedEntry]:
         """Mark search results as processed in the deduplication system"""
         processed_entries = []
         
-        # Create a mapping of site names to issue numbers
-        issue_mapping = {}
-        for issue in individual_issues:
-            # Extract site name from issue title (this is a bit hacky, but works)
-            title = issue.title
-            for site_name in new_results.keys():
-                if site_name in title:
-                    issue_mapping[site_name] = issue.number
-                    break
-        
-        # Mark all results as processed
+        # Create a flat list of (site_name, result) tuples in the same order as issues
+        result_pairs = []
         for site_name, results in new_results.items():
-            issue_number = issue_mapping.get(site_name)
-            
             for result in results:
+                result_pairs.append((site_name, result))
+        
+        # Now each issue corresponds to one result in the same order
+        for i, issue in enumerate(individual_issues):
+            if i < len(result_pairs):
+                site_name, result = result_pairs[i]
                 entry = self.dedup_manager.mark_result_processed(
                     result=result,
                     site_name=site_name,
-                    issue_number=issue_number
+                    issue_number=issue.number
                 )
                 processed_entries.append(entry)
+        
+        # Handle any remaining results that didn't get issues (due to errors)
+        for i in range(len(individual_issues), len(result_pairs)):
+            site_name, result = result_pairs[i]
+            entry = self.dedup_manager.mark_result_processed(
+                result=result,
+                site_name=site_name,
+                issue_number=None  # No issue was created
+            )
+            processed_entries.append(entry)
         
         return processed_entries
     
@@ -313,8 +291,6 @@ def main():
                        help='Days old threshold for cleanup (default: 7)')
     parser.add_argument('--no-individual-issues', action='store_true',
                        help='Skip creating individual issues (monitor command)')
-    parser.add_argument('--no-summary-issue', action='store_true',
-                       help='Skip creating summary issue (monitor command)')
     
     args = parser.parse_args()
     
@@ -336,16 +312,13 @@ def main():
         if args.command == 'monitor':
             # Run monitoring cycle
             results = service.run_monitoring_cycle(
-                create_individual_issues=not args.no_individual_issues,
-                create_summary_issue=not args.no_summary_issue
+                create_individual_issues=not args.no_individual_issues
             )
             
             if results['success']:
                 print(f"✅ Monitoring completed successfully")
                 print(f"📊 Found {results['new_results_found']} new results")
                 print(f"📝 Created {results['individual_issues_created']} individual issues")
-                if results['summary_issue_created']:
-                    print(f"📋 Created summary issue #{results['summary_issue_number']}")
             else:
                 print(f"❌ Monitoring failed: {results['error']}")
                 sys.exit(1)

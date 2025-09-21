@@ -85,14 +85,11 @@ class TestSiteMonitorService:
         mock_dedup_instance.save_processed_entries.return_value = None
         
         # Setup GitHub issue creation
-        mock_issue = Mock()
-        mock_issue.number = 123
-        mock_issue.title = "Site Update: Example Site - New Documentation Found"  # Set title as string, not Mock
-        mock_github_instance.create_site_update_issue.return_value = mock_issue
-        
-        mock_summary_issue = Mock()
-        mock_summary_issue.number = 124
-        mock_github_instance.create_daily_summary_issue.return_value = mock_summary_issue
+        mock_issue1 = Mock()
+        mock_issue1.number = 123
+        mock_issue2 = Mock()
+        mock_issue2.number = 124
+        mock_github_instance.create_individual_result_issue.side_effect = [mock_issue1, mock_issue2]
         
         # Setup rate limit status
         mock_search_instance.get_rate_limit_status.return_value = {
@@ -110,16 +107,16 @@ class TestSiteMonitorService:
         assert results['sites_monitored'] == 1
         assert results['total_search_results'] == 2
         assert results['new_results_found'] == 2
-        assert results['individual_issues_created'] == 1
-        assert results['summary_issue_created'] is True
-        assert results['summary_issue_number'] == 124
+        assert results['individual_issues_created'] == 2  # One issue per result
         assert 'cycle_duration_seconds' in results
         
         # Verify method calls
         mock_search_instance.search_all_sites.assert_called_once()
         mock_dedup_instance.filter_new_results.assert_called_once()
-        mock_github_instance.create_site_update_issue.assert_called_once()
-        mock_github_instance.create_daily_summary_issue.assert_called_once()
+        
+        # Verify individual result issues were created (one per result)
+        assert mock_github_instance.create_individual_result_issue.call_count == 2
+        
         mock_dedup_instance.save_processed_entries.assert_called_once()
     
     @patch('src.site_monitor.GoogleCustomSearchClient')
@@ -150,11 +147,6 @@ class TestSiteMonitorService:
             'entries_with_issues': 8
         }
         
-        # Setup summary issue creation
-        mock_summary_issue = Mock()
-        mock_summary_issue.number = 124
-        mock_github_instance.create_daily_summary_issue.return_value = mock_summary_issue
-        
         # Setup rate limit status
         mock_search_instance.get_rate_limit_status.return_value = {
             'calls_made_today': 1,
@@ -170,13 +162,9 @@ class TestSiteMonitorService:
         assert results['success'] is True
         assert results['new_results_found'] == 0
         assert results['individual_issues_created'] == 0
-        assert results['summary_issue_created'] is True
         
         # Verify no individual issues were created
-        mock_github_instance.create_site_update_issue.assert_not_called()
-        
-        # But summary issue should still be created
-        mock_github_instance.create_daily_summary_issue.assert_called_once()
+        mock_github_instance.create_individual_result_issue.assert_not_called()
     
     @patch('src.site_monitor.GoogleCustomSearchClient')
     @patch('src.site_monitor.DeduplicationManager')
@@ -207,22 +195,18 @@ class TestSiteMonitorService:
             'calls_made_today': 1, 'daily_limit': 90, 'calls_remaining': 89
         }
         
-        # Run monitoring cycle with both issue types disabled
+        # Run monitoring cycle with individual issues disabled
         service = SiteMonitorService(sample_config, "test-token")
         results = service.run_monitoring_cycle(
-            create_individual_issues=False,
-            create_summary_issue=False
+            create_individual_issues=False
         )
         
         # Verify results
         assert results['success'] is True
         assert results['individual_issues_created'] == 0
-        assert results['summary_issue_created'] is False
-        assert results['summary_issue_number'] is None
         
         # Verify no issues were created
-        mock_github_instance.create_site_update_issue.assert_not_called()
-        mock_github_instance.create_daily_summary_issue.assert_not_called()
+        mock_github_instance.create_individual_result_issue.assert_not_called()
     
     @patch('src.site_monitor.GoogleCustomSearchClient')
     @patch('src.site_monitor.DeduplicationManager')
@@ -454,11 +438,12 @@ class TestFilterAndProcessing:
             ]
         }
         
-        # Setup mock issues
-        mock_issue = Mock()
-        mock_issue.number = 123
-        mock_issue.title = "📄 New updates found on Example Site"
-        individual_issues = [mock_issue]
+        # Setup mock issues - now one issue per result
+        mock_issue1 = Mock()
+        mock_issue1.number = 123
+        mock_issue2 = Mock()
+        mock_issue2.number = 124
+        individual_issues = [mock_issue1, mock_issue2]
         
         # Setup deduplication behavior
         mock_entry1 = Mock()
@@ -476,7 +461,7 @@ class TestFilterAndProcessing:
         # Verify mark_result_processed was called correctly
         assert mock_dedup_instance.mark_result_processed.call_count == 2
         
-        # Verify the issue number was passed correctly (extracted from title)
+        # Verify the issue numbers were passed correctly (one issue per result)
         calls = mock_dedup_instance.mark_result_processed.call_args_list
-        assert calls[0][1]['issue_number'] == 123  # Should match the issue
-        assert calls[1][1]['issue_number'] == 123  # Should match the issue
+        assert calls[0][1]['issue_number'] == 123  # First result gets first issue
+        assert calls[1][1]['issue_number'] == 124  # Second result gets second issue

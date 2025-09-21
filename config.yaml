@@ -1,7 +1,7 @@
 sites:
-  - url: https://x.com/terrence_giggy
-    name: Terrence Giggy on X
-    max_results: 10
+  - url: https://www.roadtovr.com
+    name: Road to VR
+    max_results: 2
 github:
   repository: ${GITHUB_REPOSITORY}
   issue_labels:
@@ -15,6 +15,6 @@ search:
   search_engine_id: ${GOOGLE_SEARCH_ENGINE_ID}
   daily_query_limit: 90
   results_per_query: 10
-  date_range_days: 1
+  date_range_days: 30
 storage_path: processed_urls.json
 log_level: INFO
