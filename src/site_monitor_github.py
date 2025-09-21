@@ -59,6 +59,40 @@ class SiteMonitorIssueCreator(GitHubIssueCreator):
         logger.info(f"Created site monitoring issue #{issue.number} for {site_name}")
         return issue
     
+    def create_individual_result_issue(self, site_name: str, result: SearchResult, 
+                                      labels: Optional[List[str]] = None) -> Any:
+        """
+        Create a GitHub issue for a single search result
+        
+        Args:
+            site_name: Name of the monitored site
+            result: Single SearchResult object
+            labels: Additional labels to apply
+            
+        Returns:
+            Created GitHub issue object
+        """
+        # Build issue title - limit to reasonable length
+        title_content = result.title[:100] if len(result.title) <= 100 else result.title[:97] + "..."
+        title = f"📄 {site_name}: {title_content}"
+        
+        # Build issue body
+        body = self._build_individual_result_body(site_name, result)
+        
+        # Combine default and custom labels
+        default_labels = ['site-monitor', 'automated', 'documentation']
+        all_labels = list(set(default_labels + (labels or [])))
+        
+        # Create the issue
+        issue = self.create_issue(
+            title=title,
+            body=body,
+            labels=all_labels
+        )
+        
+        logger.info(f"Created individual result issue #{issue.number} for {site_name}")
+        return issue
+    
     def create_daily_summary_issue(self, all_results: Dict[str, List[SearchResult]], 
                                  search_summary: Dict[str, Any],
                                  labels: Optional[List[str]] = None) -> Any:
@@ -163,6 +197,55 @@ Found {len(results)} new update(s) on **{site_name}**:
         
         return body
     
+    def _build_individual_result_body(self, site_name: str, result: SearchResult) -> str:
+        """Build the body content for an individual search result issue"""
+        timestamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')
+        
+        # Truncate long snippet for summary section
+        snippet_preview = result.snippet if len(result.snippet) <= 200 else result.snippet[:197] + "..."
+        
+        body = f"""# New Update Found on {site_name}
+
+🔍 **Search Result** | 📅 **Date**: {timestamp}
+
+## 📄 {result.title}
+
+**🔗 URL**: {result.link}
+
+**📝 Snippet**: {snippet_preview}
+
+---
+
+## 🤖 Automation Details
+
+- **Monitor**: Site Update Detection
+- **Search Engine**: Google Custom Search API
+- **Detection Time**: {timestamp}
+- **Site Name**: {site_name}
+
+<details>
+<summary>📋 Click to view technical details</summary>
+
+### Search Result Metadata
+- **Title**: `{result.title}`
+- **URL**: `{result.link}`
+- **Display Link**: `{result.display_link or 'N/A'}`
+- **Cache ID**: `{result.cache_id or 'N/A'}`
+- **Discovered At**: {result.discovered_at.strftime('%Y-%m-%d %H:%M UTC')}
+
+### Full Snippet
+```
+{result.snippet}
+```
+
+</details>
+
+---
+*This issue was automatically created by the Site Monitor service for a single search result.*
+"""
+        
+        return body
+
     def _build_daily_summary_body(self, all_results: Dict[str, List[SearchResult]], 
                                 search_summary: Dict[str, Any], date: str) -> str:
         """Build the body content for a daily summary issue"""
@@ -353,7 +436,7 @@ This site monitoring issue is being automatically closed as it's older than {day
 
 
 def format_search_results_as_markdown(results: List[SearchResult], 
-                                    site_name: str = None) -> str:
+                                    site_name: Optional[str] = None) -> str:
     """
     Format search results as markdown for use in issues or comments
     
@@ -392,7 +475,7 @@ def format_search_results_as_markdown(results: List[SearchResult],
 
 
 def create_site_monitoring_labels(github_client: GitHubIssueCreator, 
-                                 labels_config: List[Dict[str, str]] = None) -> List[str]:
+                                 labels_config: Optional[List[Dict[str, str]]] = None) -> List[str]:
     """
     Create labels for site monitoring if they don't exist
     

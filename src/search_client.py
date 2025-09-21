@@ -148,15 +148,19 @@ class GoogleCustomSearchClient:
                 'q': query,
                 'cx': self.config.search_engine_id,
                 'num': min(site_config.max_results, self.config.results_per_query),
-                'dateRestrict': f'd{self.config.date_range_days}',  # Results from last N days
-                'sort': 'date',  # Sort by date (newest first)
-                'safe': 'off',  # Don't filter results
-                'fields': 'items(title,link,snippet,displayLink,formattedUrl,cacheId),searchInformation(totalResults)'
+                'dateRestrict': f'd{self.config.date_range_days}',
+                # 'sort': 'date',  # This is affecting results, removed for now
+                'safe': 'off',
+                'fields': 'items,searchInformation,queries'
             }
             
             # Execute search
             result = self.service.cse().list(**search_params).execute()
             self.rate_limiter.record_request()
+
+            logger.info(f"---")
+            logger.info(f"Raw API response: {result}")
+            logger.info(f"---")
             
             # Parse results
             search_results = self._parse_search_results(result, site_config)
@@ -244,9 +248,25 @@ class GoogleCustomSearchClient:
         try:
             parsed_url = urlparse(result.link)
             
+            # Handle site_config.url which may or may not have a scheme
+            site_url = site_config.url
+            if not site_url.startswith(('http://', 'https://')):
+                site_url = 'https://' + site_url
+            parsed_site = urlparse(site_url)
+            
+            # Extract domain names for comparison
+            result_domain = parsed_url.netloc.lower()
+            target_domain = parsed_site.netloc.lower()
+            
+            # Remove 'www.' prefix for comparison
+            if result_domain.startswith('www.'):
+                result_domain = result_domain[4:]
+            if target_domain.startswith('www.'):
+                target_domain = target_domain[4:]
+            
             # Check if the URL is from the correct domain
-            if site_config.url not in parsed_url.netloc:
-                logger.debug(f"Result not from target domain: {result.link}")
+            if target_domain != result_domain:
+                logger.debug(f"Result domain '{result_domain}' doesn't match target '{target_domain}': {result.link}")
                 return False
             
             # Check exclude paths
@@ -265,6 +285,7 @@ class GoogleCustomSearchClient:
                     logger.debug(f"Result doesn't match any search path: {result.link}")
                     return False
             
+            logger.debug(f"Result validated successfully: {result.link}")
             return True
             
         except Exception as e:

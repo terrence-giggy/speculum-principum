@@ -19,15 +19,19 @@ class TestGitHubIssueCreator:
     
     def test_init(self, mock_github_token, mock_repository_name):
         """Test GitHubIssueCreator initialization"""
-        with patch('src.github_operations.Github') as mock_github_class:
+        with patch('src.github_operations.Github') as mock_github_class, \
+             patch('src.github_operations.Auth') as mock_auth_class:
             mock_github_instance = Mock()
             mock_repo = Mock()
+            mock_auth_token = Mock()
             mock_github_class.return_value = mock_github_instance
             mock_github_instance.get_repo.return_value = mock_repo
+            mock_auth_class.Token.return_value = mock_auth_token
             
             creator = GitHubIssueCreator(mock_github_token, mock_repository_name)
             
-            mock_github_class.assert_called_once_with(mock_github_token)
+            mock_auth_class.Token.assert_called_once_with(mock_github_token)
+            mock_github_class.assert_called_once_with(auth=mock_auth_token)
             mock_github_instance.get_repo.assert_called_once_with(mock_repository_name)
             assert creator.repository == mock_repository_name
             assert creator.repo == mock_repo

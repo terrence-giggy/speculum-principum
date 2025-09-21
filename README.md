@@ -264,6 +264,49 @@ pytest --cov=src --cov=main --cov-report=html
 pytest tests/test_config_manager.py -v
 ```
 
+### VS Code Development & Debugging
+
+The project includes comprehensive VS Code configurations for easy development and debugging:
+
+#### Debug Configurations (F5 or Run & Debug panel)
+
+- **Monitor Sites (Safe Mode - No Issues)**: Run monitoring without creating any GitHub issues
+- **Monitor Sites (Create Individual Issues)**: Run monitoring with individual issues but no summary
+- **Monitor Sites (Full - All Issues)**: Complete monitoring cycle with all issue creation
+- **Show Status**: Display current monitoring status and configuration
+- **Setup Repository**: Initialize repository with monitoring setup
+- **Cleanup (Dry Run)**: Preview cleanup operations without executing them
+- **Cleanup (Execute)**: Perform actual cleanup of old data
+- **Create Test Issue**: Create a test GitHub issue for debugging
+- **Debug Current File**: Debug the currently open Python file
+
+#### Available Tasks (Ctrl+Shift+P → "Tasks: Run Task")
+
+- **Install Dependencies**: Install/update Python packages from requirements.txt
+- **Run Tests**: Execute all tests with verbose output
+- **Run Tests with Coverage**: Run tests and generate coverage reports
+- **Monitor Sites (Safe)**: Safe monitoring run without creating issues
+- **Show Monitoring Status**: Display current monitoring status
+- **Cleanup (Dry Run)**: Preview cleanup operations
+- **Lint Code**: Check code style with flake8
+- **Format Code**: Auto-format code with black
+- **Build Package**: Build distributable package
+
+#### Environment Setup
+
+The workspace is pre-configured with:
+- Python virtual environment (`.venv/bin/python`)
+- Automatic environment activation in terminals
+- Environment variables loaded from `.env` file
+- PyTest integration for testing
+
+To start debugging:
+1. Open the project in VS Code
+2. Press F5 or go to Run & Debug panel
+3. Select a configuration from the dropdown
+4. Set breakpoints as needed
+5. Start debugging!
+
 ## 🔄 Workflows
 
 ### Daily Site Monitoring (`site-monitoring.yml`)

@@ -31,9 +31,7 @@ def main():
     monitor_parser = subparsers.add_parser('monitor', help='Run site monitoring')
     monitor_parser.add_argument('--config', default='config.yaml', help='Configuration file path')
     monitor_parser.add_argument('--no-individual-issues', action='store_true',
-                               help='Skip creating individual issues')
-    monitor_parser.add_argument('--no-summary-issue', action='store_true',
-                               help='Skip creating summary issue')
+                               help='Skip creating individual issues for each search result')
     
     setup_parser = subparsers.add_parser('setup', help='Set up repository for monitoring')
     setup_parser.add_argument('--config', default='config.yaml', help='Configuration file path')
@@ -61,17 +59,13 @@ def main():
         print("Error: GITHUB_TOKEN environment variable is required", file=sys.stderr)
         sys.exit(1)
         
-    if not repo_name and args.command != 'create-issue':
-        print("Error: GITHUB_REPOSITORY environment variable is required for monitoring commands", file=sys.stderr)
+    if not repo_name:
+        print("Error: GITHUB_REPOSITORY environment variable is required", file=sys.stderr)
         sys.exit(1)
     
     try:
         if args.command == 'create-issue':
             # Legacy issue creation
-            if not repo_name:
-                print("Error: GITHUB_REPOSITORY environment variable is required", file=sys.stderr)
-                sys.exit(1)
-                
             creator = GitHubIssueCreator(github_token, repo_name)
             issue = creator.create_issue(
                 title=args.title,
@@ -90,16 +84,13 @@ def main():
             
             service = create_monitor_service_from_config(args.config, github_token)
             results = service.run_monitoring_cycle(
-                create_individual_issues=not args.no_individual_issues,
-                create_summary_issue=not args.no_summary_issue
+                create_individual_issues=not args.no_individual_issues
             )
             
             if results['success']:
                 print(f"✅ Monitoring completed successfully")
                 print(f"📊 Found {results['new_results_found']} new results")
                 print(f"📝 Created {results['individual_issues_created']} individual issues")
-                if results['summary_issue_created']:
-                    print(f"📋 Created summary issue #{results['summary_issue_number']}")
             else:
                 print(f"❌ Monitoring failed: {results['error']}", file=sys.stderr)
                 sys.exit(1)
