@@ -56,7 +56,6 @@ class SiteMonitorIssueCreator(GitHubIssueCreator):
         logger.info(f"Created individual result issue #{issue.number} for {site_name}")
         return issue
     
-
     
 
     
