@@ -336,28 +336,7 @@ class TestDeduplicationManager:
             assert 'oldest_entry' in stats
             assert 'newest_entry' in stats
     
-    def test_find_similar_titles(self):
-        """Test finding entries with similar titles"""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            storage_path = os.path.join(temp_dir, "test_processed.json")
-            manager = DeduplicationManager(storage_path=storage_path)
-            
-            # Add entries with similar titles
-            result1 = SearchResult("Documentation Update", "https://example.com/page1", "Snippet 1")
-            result2 = SearchResult("Documentation Updates", "https://example.com/page2", "Snippet 2")
-            result3 = SearchResult("API Release", "https://example.com/page3", "Snippet 3")
-            
-            manager.mark_result_processed(result1, "Site")
-            manager.mark_result_processed(result2, "Site")
-            manager.mark_result_processed(result3, "Site")
-            
-            # Find similar titles
-            similar = manager.find_similar_titles("Documentation Update", threshold=0.7)
-            
-            assert len(similar) >= 2  # Should find both documentation entries
-            titles = [entry.title for entry in similar]
-            assert "Documentation Update" in titles
-            assert "Documentation Updates" in titles
+
 
 
 class TestUtilityFunctions:

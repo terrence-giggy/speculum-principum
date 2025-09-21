@@ -47,38 +47,6 @@ class TestSearchResult:
         assert result.formatted_url == "https://example.com/page?formatted=true"
         assert result.cache_id == "cache123"
     
-    def test_search_result_to_dict(self):
-        """Test converting SearchResult to dictionary"""
-        result = SearchResult(
-            title="Test Title",
-            link="https://example.com/page",
-            snippet="Test snippet"
-        )
-        
-        result_dict = result.to_dict()
-        
-        assert result_dict['title'] == "Test Title"
-        assert result_dict['link'] == "https://example.com/page"
-        assert result_dict['snippet'] == "Test snippet"
-        assert 'discovered_at' in result_dict
-    
-    def test_search_result_from_dict(self):
-        """Test creating SearchResult from dictionary"""
-        data = {
-            'title': "Test Title",
-            'link': "https://example.com/page",
-            'snippet': "Test snippet",
-            'display_link': "example.com/page",
-            'discovered_at': datetime.utcnow().isoformat()
-        }
-        
-        result = SearchResult.from_dict(data)
-        
-        assert result.title == "Test Title"
-        assert result.link == "https://example.com/page"
-        assert result.snippet == "Test snippet"
-        assert result.display_link == "example.com/page"
-
 
 class TestRateLimiter:
     """Test the RateLimiter class"""

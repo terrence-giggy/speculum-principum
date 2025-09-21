@@ -281,39 +281,9 @@ class DeduplicationManager:
             'retention_days': self.retention_days
         }
     
-    def get_recent_processed_urls(self, days: int = 7) -> List[ProcessedEntry]:
-        """Get entries processed in the last N days"""
-        cutoff_date = datetime.utcnow() - timedelta(days=days)
-        recent_entries = [
-            entry for entry in self.processed_entries.values()
-            if entry.processed_at >= cutoff_date
-        ]
-        return sorted(recent_entries, key=lambda e: e.processed_at, reverse=True)
+
     
-    def find_similar_titles(self, title: str, threshold: float = 0.8) -> List[ProcessedEntry]:
-        """
-        Find processed entries with similar titles
-        
-        Args:
-            title: Title to search for similarities
-            threshold: Similarity threshold (0.0 to 1.0)
-            
-        Returns:
-            List of ProcessedEntry objects with similar titles
-        """
-        from difflib import SequenceMatcher
-        
-        similar_entries = []
-        title_lower = title.lower().strip()
-        
-        for entry in self.processed_entries.values():
-            entry_title_lower = entry.title.lower().strip()
-            similarity = SequenceMatcher(None, title_lower, entry_title_lower).ratio()
-            
-            if similarity >= threshold:
-                similar_entries.append(entry)
-        
-        return sorted(similar_entries, key=lambda e: e.processed_at, reverse=True)
+
     
     def cleanup_storage(self) -> None:
         """Manual cleanup of storage (removes old entries and saves)"""

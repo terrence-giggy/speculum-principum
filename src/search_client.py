@@ -39,32 +39,7 @@ class SearchResult:
     def __repr__(self):
         return self.__str__()
     
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for JSON serialization"""
-        return {
-            'title': self.title,
-            'link': self.link,
-            'snippet': self.snippet,
-            'display_link': self.display_link,
-            'formatted_url': self.formatted_url,
-            'cache_id': self.cache_id,
-            'discovered_at': self.discovered_at.isoformat()
-        }
-    
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'SearchResult':
-        """Create SearchResult from dictionary"""
-        result = cls(
-            title=data['title'],
-            link=data['link'],
-            snippet=data['snippet'],
-            display_link=data.get('display_link'),
-            formatted_url=data.get('formatted_url'),
-            cache_id=data.get('cache_id')
-        )
-        if 'discovered_at' in data:
-            result.discovered_at = datetime.fromisoformat(data['discovered_at'])
-        return result
+
 
 
 class RateLimiter:

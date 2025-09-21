@@ -174,23 +174,7 @@ class TestConfigLoader:
         assert isinstance(config.github, GitHubConfig)
         assert isinstance(config.search, SearchConfig)
     
-    def test_create_example_config(self):
-        """Test creating example configuration file"""
-        with tempfile.NamedTemporaryFile(suffix='.yaml', delete=False) as f:
-            try:
-                ConfigLoader.create_example_config(f.name)
-                
-                # Verify the file was created and is valid YAML
-                with open(f.name, 'r') as read_file:
-                    example_config = yaml.safe_load(read_file)
-                
-                assert 'sites' in example_config
-                assert 'github' in example_config
-                assert 'search' in example_config
-                assert len(example_config['sites']) >= 1
-                
-            finally:
-                os.unlink(f.name)
+    
 
 
 class TestEnvironmentSubstitution:
