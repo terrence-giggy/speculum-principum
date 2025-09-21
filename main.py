@@ -9,7 +9,7 @@ import sys
 import argparse
 from dotenv import load_dotenv
 
-from src.github_operations import GitHubIssueCreator
+from src.github_issue_creator import GitHubIssueCreator
 from src.site_monitor import create_monitor_service_from_config
 
 

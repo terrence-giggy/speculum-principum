@@ -10,7 +10,7 @@ import os
 # Add src directory to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from src.github_operations import GitHubIssueCreator, GitHubOperations
+from src.github_issue_creator import GitHubIssueCreator
 from tests.conftest import MockGitHubException
 
 
@@ -19,8 +19,8 @@ class TestGitHubIssueCreator:
     
     def test_init(self, mock_github_token, mock_repository_name):
         """Test GitHubIssueCreator initialization"""
-        with patch('src.github_operations.Github') as mock_github_class, \
-             patch('src.github_operations.Auth') as mock_auth_class:
+        with patch('src.github_issue_creator.Github') as mock_github_class, \
+             patch('src.github_issue_creator.Auth') as mock_auth_class:
             mock_github_instance = Mock()
             mock_repo = Mock()
             mock_auth_token = Mock()
@@ -36,7 +36,7 @@ class TestGitHubIssueCreator:
             assert creator.repository == mock_repository_name
             assert creator.repo == mock_repo
     
-    @patch('src.github_operations.Github')
+    @patch('src.github_issue_creator.Github')
     def test_create_issue_success(self, mock_github_class, mock_github_token, mock_repository_name, mock_issue_data, mock_github_issue):
         """Test successful issue creation"""
         # Setup mocks
@@ -65,7 +65,7 @@ class TestGitHubIssueCreator:
         )
         assert result == mock_github_issue
     
-    @patch('src.github_operations.Github')
+    @patch('src.github_issue_creator.Github')
     def test_create_issue_minimal(self, mock_github_class, mock_github_token, mock_repository_name, mock_github_issue):
         """Test issue creation with minimal parameters"""
         # Setup mocks
@@ -89,7 +89,7 @@ class TestGitHubIssueCreator:
         )
         assert result == mock_github_issue
     
-    @patch('src.github_operations.Github')
+    @patch('src.github_issue_creator.Github')
     def test_create_issue_invalid_labels(self, mock_github_class, mock_github_token, mock_repository_name, mock_github_issue, capsys):
         """Test issue creation with invalid labels"""
         # Setup mocks
@@ -120,7 +120,7 @@ class TestGitHubIssueCreator:
         )
         assert result == mock_github_issue
     
-    @patch('src.github_operations.Github')
+    @patch('src.github_issue_creator.Github')
     def test_create_issue_github_exception(self, mock_github_class, mock_github_token, mock_repository_name):
         """Test issue creation with GitHub API exception"""
         # Setup mocks
@@ -140,7 +140,7 @@ class TestGitHubIssueCreator:
         with pytest.raises(RuntimeError, match="Failed to create GitHub issue: API rate limit exceeded"):
             creator.create_issue(title="Test Issue")
     
-    @patch('src.github_operations.Github')
+    @patch('src.github_issue_creator.Github')
     def test_create_issue_unexpected_exception(self, mock_github_class, mock_github_token, mock_repository_name):
         """Test issue creation with unexpected exception"""
         # Setup mocks
@@ -157,7 +157,7 @@ class TestGitHubIssueCreator:
         with pytest.raises(RuntimeError, match="Unexpected error creating issue: Unexpected error"):
             creator.create_issue(title="Test Issue")
     
-    @patch('src.github_operations.Github')
+    @patch('src.github_issue_creator.Github')
     def test_get_repository_info_success(self, mock_github_class, mock_github_token, mock_repository_name, sample_repo_info):
         """Test successful repository info retrieval"""
         # Setup mocks
@@ -180,7 +180,7 @@ class TestGitHubIssueCreator:
         # Assertions
         assert result == sample_repo_info
     
-    @patch('src.github_operations.Github')
+    @patch('src.github_issue_creator.Github')
     def test_get_repository_info_exception(self, mock_github_class, mock_github_token, mock_repository_name):
         """Test repository info retrieval with exception"""
         # Setup mocks
@@ -199,49 +199,6 @@ class TestGitHubIssueCreator:
         
         with pytest.raises(RuntimeError, match="Failed to get repository info: Repository not found"):
             creator.get_repository_info()
-
-
-class TestGitHubOperations:
-    """Test cases for GitHubOperations class"""
-    
-    @patch('src.github_operations.GitHubIssueCreator')
-    def test_init(self, mock_issue_creator_class, mock_github_token, mock_repository_name):
-        """Test GitHubOperations initialization"""
-        mock_issue_creator_instance = Mock()
-        mock_issue_creator_class.return_value = mock_issue_creator_instance
-        
-        operations = GitHubOperations(mock_github_token, mock_repository_name)
-        
-        mock_issue_creator_class.assert_called_once_with(mock_github_token, mock_repository_name)
-        assert operations.token == mock_github_token
-        assert operations.repository == mock_repository_name
-        assert operations.issue_creator == mock_issue_creator_instance
-    
-    @patch('src.github_operations.GitHubIssueCreator')
-    def test_create_issue_wrapper(self, mock_issue_creator_class, mock_github_token, mock_repository_name, mock_issue_data, mock_github_issue):
-        """Test create_issue wrapper method"""
-        mock_issue_creator_instance = Mock()
-        mock_issue_creator_class.return_value = mock_issue_creator_instance
-        mock_issue_creator_instance.create_issue.return_value = mock_github_issue
-        
-        operations = GitHubOperations(mock_github_token, mock_repository_name)
-        result = operations.create_issue(**mock_issue_data)
-        
-        mock_issue_creator_instance.create_issue.assert_called_once_with(**mock_issue_data)
-        assert result == mock_github_issue
-    
-    @patch('src.github_operations.GitHubIssueCreator')
-    def test_get_repo_info_wrapper(self, mock_issue_creator_class, mock_github_token, mock_repository_name, sample_repo_info):
-        """Test get_repo_info wrapper method"""
-        mock_issue_creator_instance = Mock()
-        mock_issue_creator_class.return_value = mock_issue_creator_instance
-        mock_issue_creator_instance.get_repository_info.return_value = sample_repo_info
-        
-        operations = GitHubOperations(mock_github_token, mock_repository_name)
-        result = operations.get_repo_info()
-        
-        mock_issue_creator_instance.get_repository_info.assert_called_once()
-        assert result == sample_repo_info
 
 
 @pytest.mark.integration

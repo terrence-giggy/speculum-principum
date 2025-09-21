@@ -36,7 +36,7 @@ speculum-principum/
 │   ├── config_manager.py           # Configuration loading and validation
 │   ├── search_client.py            # Google Custom Search API client
 │   ├── deduplication.py           # URL/content deduplication system
-│   ├── github_operations.py       # Basic GitHub API operations
+│   ├── github_issue_creator.py    # Basic GitHub API operations
 │   ├── site_monitor_github.py     # Enhanced GitHub operations for monitoring
 │   └── site_monitor.py            # Main monitoring service orchestration
 ├── tests/
@@ -646,7 +646,7 @@ Automated and manual operations for regular maintenance tasks.
    parser.add_argument('operation', choices=['create-issue', 'your-new-operation'])
    ```
 
-2. **Implement the operation in `src/github_operations.py`**:
+2. **Implement the operation in `src/github_issue_creator.py`**:
    ```python
    def your_new_operation(self, **kwargs):
        # Implementation here
@@ -751,7 +751,7 @@ tests/
 ├── __init__.py
 ├── conftest.py              # Test fixtures and configuration
 ├── test_smoke.py            # Basic smoke tests
-├── test_github_operations.py # Unit tests for GitHub operations
+├── test_github_issue_creator.py # Unit tests for GitHub operations
 └── test_main.py            # Integration tests for main application
 ```
 

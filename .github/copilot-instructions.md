@@ -26,7 +26,7 @@ Site monitoring service: Google Search API → deduplication → GitHub issues
 
 **Deduplication**: Content hash = `sha256(normalized_url + title.lower())[:16]`. Storage in JSON with retention policies.
 
-**Safe testing**: Always use `--no-individual-issues --no-summary-issue` to avoid API spam.
+**Safe testing**: Always use `--no-individual-issues` to avoid API spam.
 
 **Two-tier GitHub ops**: Basic `GitHubIssueCreator` + specialized `SiteMonitorIssueCreator` for domain logic.
 

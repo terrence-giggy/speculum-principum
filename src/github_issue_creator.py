@@ -96,21 +96,3 @@ class GitHubIssueCreator:
             raise RuntimeError(f"Failed to get repository info: {e.data.get('message', str(e))}") from e
 
 
-class GitHubOperations:
-    """
-    Main class for GitHub operations
-    Can be extended for additional operations beyond issue creation
-    """
-    
-    def __init__(self, token: str, repository: str):
-        self.token = token
-        self.repository = repository
-        self.issue_creator = GitHubIssueCreator(token, repository)
-    
-    def create_issue(self, **kwargs):
-        """Wrapper for issue creation"""
-        return self.issue_creator.create_issue(**kwargs)
-    
-    def get_repo_info(self):
-        """Wrapper for repository info"""
-        return self.issue_creator.get_repository_info()

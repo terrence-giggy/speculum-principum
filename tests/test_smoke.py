@@ -20,7 +20,7 @@ class TestTestSuite:
     def test_imports_working(self):
         """Test that imports are working correctly"""
         try:
-            import src.github_operations
+            import src.github_issue_creator
             import main
             assert True
         except ImportError as e:

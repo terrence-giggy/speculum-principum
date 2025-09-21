@@ -246,52 +246,7 @@ class ConfigLoader:
             log_level=config_data.get('log_level', 'INFO')
         )
     
-    @classmethod
-    def create_example_config(cls, output_path: str = "config.example.yaml") -> None:
-        """
-        Create an example configuration file
-        
-        Args:
-            output_path: Path where the example config will be written
-        """
-        example_config = {
-            'sites': [
-                {
-                    'url': 'example.com',
-                    'name': 'Example Site',
-                    'keywords': ['documentation', 'changelog', 'release'],
-                    'max_results': 10,
-                    'search_paths': ['/docs', '/blog'],
-                    'exclude_paths': ['/admin', '/private'],
-                    'custom_search_terms': ['new features', 'updated']
-                },
-                {
-                    'url': 'another-site.com',
-                    'name': 'Another Site',
-                    'keywords': ['news', 'updates'],
-                    'max_results': 5
-                }
-            ],
-            'github': {
-                'repository': 'owner/repo-name',
-                'issue_labels': ['site-monitor', 'automated', 'documentation'],
-                'default_assignees': ['username']
-            },
-            'search': {
-                'api_key': 'YOUR_GOOGLE_API_KEY',
-                'search_engine_id': 'YOUR_SEARCH_ENGINE_ID',
-                'daily_query_limit': 90,
-                'results_per_query': 10,
-                'date_range_days': 1
-            },
-            'storage_path': 'processed_urls.json',
-            'log_level': 'INFO'
-        }
-        
-        with open(output_path, 'w', encoding='utf-8') as file:
-            yaml.dump(example_config, file, default_flow_style=False, sort_keys=False)
-        
-        print(f"Example configuration created at: {output_path}")
+
 
 
 def load_config_with_env_substitution(config_path: str) -> MonitorConfig:
