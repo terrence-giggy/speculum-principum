@@ -16,5 +16,24 @@ search:
   daily_query_limit: 90
   results_per_query: 10
   date_range_days: 30
+agent:
+  username: ${GITHUB_ACTOR}
+  workflow_directory: "docs/workflow/deliverables"
+  template_directory: "templates"
+  output_directory: "study"
+  processing:
+    default_timeout_minutes: 60
+    max_concurrent_issues: 3
+    retry_attempts: 2
+    require_review: true
+    auto_create_pr: false
+  git:
+    branch_prefix: "agent"
+    commit_message_template: "Agent: {workflow_name} for issue #{issue_number}"
+    auto_push: true
+  validation:
+    min_word_count: 100
+    require_citations: false
+    spell_check: false
 storage_path: processed_urls.json
 log_level: INFO

@@ -6,6 +6,7 @@ Main orchestration service that combines search, deduplication, and GitHub opera
 import logging
 import os
 import sys
+import time
 from datetime import datetime
 from typing import Dict, List, Optional, Any, Tuple
 from pathlib import Path
@@ -14,6 +15,13 @@ from .config_manager import MonitorConfig, load_config_with_env_substitution
 from .search_client import GoogleCustomSearchClient, SearchResult, create_search_summary
 from .deduplication import DeduplicationManager, ProcessedEntry
 from .site_monitor_github import SiteMonitorIssueCreator, create_site_monitoring_labels
+
+# Import issue processor only when needed to avoid circular dependencies
+try:
+    from .issue_processor import IssueProcessor
+    ISSUE_PROCESSOR_AVAILABLE = True
+except ImportError:
+    ISSUE_PROCESSOR_AVAILABLE = False
 
 
 # Configure logging
@@ -46,6 +54,23 @@ class SiteMonitorService:
             token=github_token,
             repository=config.github.repository
         )
+        
+        # Initialize issue processor if available and enabled
+        self.issue_processor = None
+        if (ISSUE_PROCESSOR_AVAILABLE and 
+            hasattr(config, 'agent') and 
+            getattr(config.agent, 'enabled', False)):
+            try:
+                self.issue_processor = IssueProcessor(
+                    config_path=getattr(config, 'config_path', 'config.yaml'),
+                    workflow_dir=getattr(config.agent, 'workflow_dir', None),
+                    output_base_dir=getattr(config.agent, 'output_dir', None),
+                    enable_git=getattr(config.agent, 'enable_git', True)
+                )
+                logger.info("Issue processor initialized and enabled")
+            except Exception as e:
+                logger.warning(f"Failed to initialize issue processor: {e}")
+                self.issue_processor = None
         
         # Set logging level
         logging.getLogger().setLevel(getattr(logging, config.log_level))
@@ -87,6 +112,12 @@ class SiteMonitorService:
             logger.info("Step 5: Saving deduplication data")
             self.dedup_manager.save_processed_entries()
             
+            # Step 6: Process issues with agent workflows (if enabled)
+            issue_processing_results = []
+            if individual_issues and self.issue_processor:
+                logger.info("Step 6: Processing issues with automated workflows")
+                issue_processing_results = self._process_created_issues(individual_issues)
+            
             # Calculate cycle statistics
             cycle_end = datetime.utcnow()
             cycle_duration = (cycle_end - cycle_start).total_seconds()
@@ -103,6 +134,7 @@ class SiteMonitorService:
                 'new_results_found': total_new_results,
                 'individual_issues_created': len(individual_issues),
                 'individual_issue_numbers': [issue.number for issue in individual_issues],
+                'issue_processing_results': issue_processing_results,
                 'rate_limit_status': self.search_client.get_rate_limit_status(),
                 'deduplication_stats': self.dedup_manager.get_processed_stats(),
                 'error': None
@@ -193,6 +225,54 @@ class SiteMonitorService:
         
         return processed_entries
     
+    def _process_created_issues(self, individual_issues: List[Any]) -> List[Dict[str, Any]]:
+        """
+        Process newly created issues with the issue processor agent.
+        
+        Args:
+            individual_issues: List of GitHub issue objects to process
+            
+        Returns:
+            List of processing results for each issue
+        """
+        processing_results = []
+        
+        if not self.issue_processor:
+            logger.debug("Issue processor not available, skipping issue processing")
+            return processing_results
+        
+        for issue in individual_issues:
+            try:
+                logger.info(f"Processing issue #{issue.number} with automated workflow")
+                
+                # Process the issue using the issue processor
+                result = self.issue_processor.process_issue(issue.number)
+                processing_results.append({
+                    'issue_number': issue.number,
+                    'status': result.status.value if hasattr(result.status, 'value') else str(result.status),
+                    'workflow': result.workflow_name or 'none',
+                    'deliverables': result.created_files or [],
+                    'error': result.error_message
+                })
+                
+                # Add small delay between processing to avoid overwhelming the system
+                time.sleep(1)
+                
+            except Exception as e:
+                logger.error(f"Failed to process issue #{issue.number}: {e}")
+                processing_results.append({
+                    'issue_number': issue.number,
+                    'status': 'error',
+                    'workflow': 'none',
+                    'deliverables': [],
+                    'error': str(e)
+                })
+        
+        successful_processes = sum(1 for r in processing_results if r['status'] not in ['error', 'failed'])
+        logger.info(f"Issue processing completed: {successful_processes}/{len(individual_issues)} issues processed successfully")
+        
+        return processing_results
+    
     def setup_repository(self) -> None:
         """Set up the repository with necessary labels and configuration"""
         logger.info("Setting up repository for site monitoring")
@@ -257,6 +337,90 @@ class SiteMonitorService:
                 'log_level': self.config.log_level
             }
         }
+    
+    def process_existing_issues(self, limit: Optional[int] = None, 
+                              force_reprocess: bool = False) -> Dict[str, Any]:
+        """
+        Scan for and process existing site-monitor labeled issues.
+        
+        Args:
+            limit: Maximum number of issues to process (None for all)
+            force_reprocess: Whether to reprocess already assigned issues
+            
+        Returns:
+            Dictionary with processing results and statistics
+        """
+        if not self.issue_processor:
+            return {
+                'success': False,
+                'error': 'Issue processor not available or not enabled',
+                'processed_issues': []
+            }
+        
+        try:
+            logger.info("Scanning for existing site-monitor issues to process")
+            
+            # Get site-monitor labeled issues from GitHub
+            unprocessed_issues = self.github_client.get_unprocessed_monitoring_issues(
+                limit=limit,
+                force_reprocess=force_reprocess
+            )
+            
+            if not unprocessed_issues:
+                logger.info("No unprocessed site-monitor issues found")
+                return {
+                    'success': True,
+                    'processed_issues': [],
+                    'message': 'No unprocessed issues found'
+                }
+            
+            logger.info(f"Found {len(unprocessed_issues)} unprocessed issues")
+            
+            # Process each issue
+            processing_results = []
+            for issue in unprocessed_issues:
+                try:
+                    logger.info(f"Processing existing issue #{issue.number}")
+                    
+                    result = self.issue_processor.process_issue(issue.number)
+                    processing_results.append({
+                        'issue_number': issue.number,
+                        'status': result.status.value if hasattr(result.status, 'value') else str(result.status),
+                        'workflow': result.workflow_name or 'none',
+                        'deliverables': result.created_files or [],
+                        'error': result.error_message
+                    })
+                    
+                    # Brief delay between issues
+                    time.sleep(1)
+                    
+                except Exception as e:
+                    logger.error(f"Failed to process existing issue #{issue.number}: {e}")
+                    processing_results.append({
+                        'issue_number': issue.number,
+                        'status': 'error',
+                        'workflow': 'none',
+                        'deliverables': [],
+                        'error': str(e)
+                    })
+            
+            successful_processes = sum(1 for r in processing_results if r['status'] not in ['error', 'failed'])
+            logger.info(f"Existing issue processing completed: {successful_processes}/{len(unprocessed_issues)} issues processed successfully")
+            
+            return {
+                'success': True,
+                'processed_issues': processing_results,
+                'total_found': len(unprocessed_issues),
+                'successful_processes': successful_processes
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to process existing issues: {e}")
+            return {
+                'success': False,
+                'error': str(e),
+                'processed_issues': []
+            }
 
 
 def create_monitor_service_from_config(config_path: str, github_token: str) -> SiteMonitorService:

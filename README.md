@@ -22,6 +22,14 @@ A comprehensive Python application that monitors websites for updates using Goog
 - **Persistent Storage**: JSON-based deduplication tracking with data retention policies
 - **Comprehensive Logging**: Detailed logging with configurable levels and file output
 
+### Automated Issue Processing
+- **AI-Powered Workflow Engine**: Automatically processes issues labeled with `site-monitor` using customizable workflow definitions
+- **Dynamic Workflow Matching**: Intelligent matching of issues to appropriate workflows based on labels and content
+- **Structured Document Generation**: Generates comprehensive research documents, analysis reports, and deliverables
+- **Template-Based Content**: Flexible template system for consistent document formatting and structure
+- **Git Integration**: Automatic branch creation, content versioning, and commit management
+- **Adaptive Processing**: Workflows adapt based on issue characteristics, urgency, and complexity
+
 ## 📁 Project Structure
 
 ```
@@ -38,14 +46,33 @@ speculum-principum/
 │   ├── deduplication.py           # URL/content deduplication system
 │   ├── github_issue_creator.py    # Basic GitHub API operations
 │   ├── site_monitor_github.py     # Enhanced GitHub operations for monitoring
-│   └── site_monitor.py            # Main monitoring service orchestration
+│   ├── site_monitor.py            # Main monitoring service orchestration
+│   ├── issue_processor.py         # Automated issue processing engine
+│   ├── workflow_matcher.py        # Workflow discovery and matching logic
+│   ├── deliverable_generator.py   # Document generation system
+│   ├── template_engine.py         # Template processing and rendering
+│   ├── git_manager.py             # Git operations and version control
+│   ├── batch_processor.py         # Batch processing for multiple issues
+│   └── cli_helpers.py             # Command-line interface utilities
+├── docs/
+│   ├── issue-processor.md          # Issue processor documentation
+│   ├── workflow-creation-guide.md  # Guide for creating workflows
+│   └── workflow/
+│       └── deliverables/           # Workflow definition files
+├── templates/
+│   ├── base_deliverable.md         # Base template for documents
+│   └── research_analysis.md        # Research-specific template
+├── examples/
+│   └── sample-workflows/           # Example workflow definitions
 ├── tests/
 │   ├── __init__.py
 │   ├── test_config_manager.py
 │   ├── test_search_client.py
 │   ├── test_deduplication.py
 │   ├── test_site_monitor.py
-│   └── [existing test files]
+│   ├── test_issue_processor.py     # Issue processor tests
+│   ├── test_workflow_matcher.py    # Workflow matching tests
+│   └── [additional test files]
 ├── main.py                         # Application entry point
 ├── config.yaml                     # Site monitoring configuration
 ├── requirements.txt                # Python dependencies
@@ -146,6 +173,113 @@ The monitoring runs automatically daily at 9:00 AM UTC, or you can trigger it ma
 2. Select "Daily Site Monitoring" workflow  
 3. Click "Run workflow"
 
+## 🤖 Automated Issue Processing
+
+The Issue Processor is an intelligent agent that automatically processes GitHub issues labeled with `site-monitor` by executing customizable workflows and generating structured research documents.
+
+### Key Features
+
+- **Smart Workflow Matching**: Automatically selects appropriate workflows based on issue labels
+- **Document Generation**: Creates structured research reports, analysis documents, and deliverables
+- **Git Integration**: Manages branches, commits, and version control for generated content
+- **Template System**: Uses customizable templates for consistent document formatting
+- **Adaptive Processing**: Workflows adapt based on issue characteristics and complexity
+
+### Quick Start with Issue Processing
+
+#### 1. Create Workflow Definitions
+
+Create workflow files in `docs/workflow/deliverables/`:
+
+```yaml
+# docs/workflow/deliverables/research-analysis.yaml
+name: "Research Analysis Workflow"
+description: "Comprehensive research and analysis"
+version: "1.0.0"
+
+trigger_labels:
+  - "research"
+  - "analysis"
+
+output:
+  folder_structure: "study/{issue_number}/research"
+  file_naming: "{deliverable_name}.md"
+
+deliverables:
+  - name: "research_summary"
+    template: "research_analysis.md"
+    required: true
+    description: "Research findings and analysis"
+```
+
+#### 2. Configure Agent Settings
+
+Add agent configuration to your `config.yaml`:
+
+```yaml
+agent:
+  username: "github-actions[bot]"
+  timeout: 3600
+  workflow_directory: "docs/workflow/deliverables"
+  output_directory: "study"
+```
+
+#### 3. Process Issues
+
+```bash
+# Process a specific issue
+python main.py process-issues --issue 123
+
+# Batch process all site-monitor issues
+python main.py process-issues --batch
+
+# Dry run to see what would be processed
+python main.py process-issues --issue 123 --dry-run
+```
+
+#### 4. Issue Processing Flow
+
+1. **Label your issue** with `site-monitor` and workflow-specific labels (e.g., `research`)
+2. **Agent assigns itself** and begins processing
+3. **Workflow executes** and generates deliverables in the `study/` directory
+4. **Git branch created** with generated content
+5. **Issue updated** with completion status and links to generated documents
+
+### Available Commands
+
+```bash
+# Issue processing
+python main.py process-issues --issue 123              # Process specific issue
+python main.py process-issues --batch                  # Process all eligible issues
+python main.py process-issues --workflow research      # Use specific workflow
+
+# Workflow management
+python main.py list-workflows                          # Show available workflows
+python main.py validate-workflows                      # Check workflow syntax
+python main.py workflow-stats                          # Show usage statistics
+
+# Status and monitoring
+python main.py status --show-processing                # Show active processing
+python main.py list-processing                         # List in-progress issues
+```
+
+### Example Workflows
+
+The repository includes example workflows in `examples/sample-workflows/`:
+
+- **Simple Research** (`simple-research.yaml`): Basic research and investigation
+- **Security Assessment** (`security-assessment.yaml`): Comprehensive security analysis
+- **Code Review** (`code-review.yaml`): Technical code and architecture review
+- **Quick Analysis** (`quick-analysis.yaml`): Fast-turnaround urgent analysis
+
+### Documentation
+
+For comprehensive information about creating and using workflows:
+
+- 📖 **[Issue Processor Documentation](docs/issue-processor.md)**: Complete system documentation
+- 🛠️ **[Workflow Creation Guide](docs/workflow-creation-guide.md)**: Step-by-step workflow creation
+- 💡 **[Example Workflows](examples/sample-workflows/)**: Sample workflow definitions
+
 ## 📖 Detailed Configuration
 
 ### Site Configuration Options
@@ -232,19 +366,21 @@ export GITHUB_TOKEN="your_token"
 export GOOGLE_API_KEY="your_api_key"
 export GOOGLE_SEARCH_ENGINE_ID="your_engine_id"
 
-# Run monitoring
+# Site monitoring commands
 python main.py monitor --config config.yaml
-
-# Setup repository (create labels)
 python main.py setup --config config.yaml
-
-# Check status
 python main.py status --config config.yaml
-
-# Cleanup old data
 python main.py cleanup --config config.yaml --days-old 7 --dry-run
 
-# Create a single issue (legacy command)
+# Issue processing commands
+python main.py process-issues --issue 123                 # Process specific issue
+python main.py process-issues --batch                     # Process all eligible issues
+python main.py process-issues --issue 123 --dry-run       # Preview processing
+python main.py list-workflows                             # Show available workflows
+python main.py validate-workflows                         # Validate workflow files
+python main.py workflow-stats                             # Show workflow statistics
+
+# Legacy command
 python main.py create-issue --title "Test Issue" --body "Test content"
 ```
 

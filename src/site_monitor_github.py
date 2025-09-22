@@ -6,12 +6,10 @@ Extends the existing GitHub operations with monitoring-specific functionality
 import logging
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Any
-from github import Github
 from github.GithubException import GithubException
 
 from .github_issue_creator import GitHubIssueCreator
 from .search_client import SearchResult
-from .deduplication import ProcessedEntry
 
 
 logger = logging.getLogger(__name__)
@@ -136,6 +134,132 @@ This site monitoring issue is being automatically closed as it's older than {day
         except GithubException as e:
             logger.error(f"Failed to close old monitoring issues: {e}")
             raise
+    
+    def get_unprocessed_monitoring_issues(self, limit: Optional[int] = None, 
+                                        force_reprocess: bool = False) -> List[Any]:
+        """
+        Get site-monitor labeled issues that haven't been processed by the agent.
+        
+        Args:
+            limit: Maximum number of issues to return (None for all)
+            force_reprocess: Whether to include already assigned issues
+            
+        Returns:
+            List of GitHub issue objects ready for processing
+        """
+        try:
+            # Search for open site-monitor issues
+            issues = self.repo.get_issues(
+                state='open', 
+                labels=['site-monitor'],
+                sort='created',
+                direction='desc'
+            )
+            
+            unprocessed_issues = []
+            for issue in issues:
+                # Skip if limit reached
+                if limit and len(unprocessed_issues) >= limit:
+                    break
+                
+                # Check if issue is already assigned to an agent (unless force_reprocess)
+                if not force_reprocess and issue.assignee:
+                    logger.debug(f"Skipping assigned issue #{issue.number}")
+                    continue
+                
+                # Check if issue has been processed (look for agent comments)
+                if self._issue_has_agent_activity(issue) and not force_reprocess:
+                    logger.debug(f"Skipping issue #{issue.number} with existing agent activity")
+                    continue
+                
+                unprocessed_issues.append(issue)
+            
+            logger.info(f"Found {len(unprocessed_issues)} unprocessed site-monitor issues")
+            return unprocessed_issues
+            
+        except GithubException as e:
+            logger.error(f"Failed to get unprocessed monitoring issues: {e}")
+            raise
+    
+    def _issue_has_agent_activity(self, issue) -> bool:
+        """
+        Check if an issue has comments or activity from the automated agent.
+        
+        Args:
+            issue: GitHub issue object
+            
+        Returns:
+            True if the issue shows signs of agent processing
+        """
+        try:
+            # Check for comments from known agent users
+            agent_indicators = [
+                'github-actions[bot]',
+                'automated workflow',
+                '🤖',  # Robot emoji commonly used by agents
+                'deliverable generated',
+                'workflow matched'
+            ]
+            
+            for comment in issue.get_comments():
+                comment_body = comment.body.lower()
+                comment_user = comment.user.login if comment.user else ''
+                
+                # Check if comment is from a bot user
+                if any(bot_name in comment_user for bot_name in ['[bot]', 'github-actions']):
+                    return True
+                
+                # Check if comment contains agent indicators
+                if any(indicator in comment_body for indicator in agent_indicators):
+                    return True
+            
+            return False
+            
+        except GithubException as e:
+            logger.debug(f"Could not check agent activity for issue #{issue.number}: {e}")
+            return False  # Assume no activity if we can't check
+    
+    def assign_issue_to_agent(self, issue_number: int, agent_username: str) -> bool:
+        """
+        Assign an issue to the automated agent for processing.
+        
+        Args:
+            issue_number: Issue number to assign
+            agent_username: Username of the agent to assign
+            
+        Returns:
+            True if assignment was successful
+        """
+        try:
+            issue = self.repo.get_issue(issue_number)
+            issue.add_to_assignees(agent_username)
+            logger.info(f"Assigned issue #{issue_number} to {agent_username}")
+            return True
+            
+        except GithubException as e:
+            logger.error(f"Failed to assign issue #{issue_number} to {agent_username}: {e}")
+            return False
+    
+    def unassign_issue_from_agent(self, issue_number: int, agent_username: str) -> bool:
+        """
+        Remove agent assignment from an issue (e.g., when clarification is needed).
+        
+        Args:
+            issue_number: Issue number to unassign
+            agent_username: Username of the agent to remove
+            
+        Returns:
+            True if unassignment was successful
+        """
+        try:
+            issue = self.repo.get_issue(issue_number)
+            issue.remove_from_assignees(agent_username)
+            logger.info(f"Unassigned issue #{issue_number} from {agent_username}")
+            return True
+            
+        except GithubException as e:
+            logger.error(f"Failed to unassign issue #{issue_number} from {agent_username}: {e}")
+            return False
 
 
 

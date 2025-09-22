@@ -16,11 +16,11 @@ class SiteConfig:
     """Configuration for a single monitored site"""
     url: str
     name: str
-    keywords: List[str] = None
+    keywords: Optional[List[str]] = None
     max_results: int = 10
-    search_paths: List[str] = None
-    exclude_paths: List[str] = None
-    custom_search_terms: List[str] = None
+    search_paths: Optional[List[str]] = None
+    exclude_paths: Optional[List[str]] = None
+    custom_search_terms: Optional[List[str]] = None
     
     def __post_init__(self):
         """Initialize default values after dataclass creation"""
@@ -38,8 +38,8 @@ class SiteConfig:
 class GitHubConfig:
     """GitHub repository configuration"""
     repository: str
-    issue_labels: List[str] = None
-    default_assignees: List[str] = None
+    issue_labels: Optional[List[str]] = None
+    default_assignees: Optional[List[str]] = None
     
     def __post_init__(self):
         """Initialize default values after dataclass creation"""
@@ -47,6 +47,53 @@ class GitHubConfig:
             self.issue_labels = ["site-monitor", "automated"]
         if self.default_assignees is None:
             self.default_assignees = []
+
+
+@dataclass
+class AgentProcessingConfig:
+    """Agent processing configuration"""
+    default_timeout_minutes: int = 60
+    max_concurrent_issues: int = 3
+    retry_attempts: int = 2
+    require_review: bool = True
+    auto_create_pr: bool = False
+
+
+@dataclass
+class AgentGitConfig:
+    """Agent git configuration"""
+    branch_prefix: str = "agent"
+    commit_message_template: str = "Agent: {workflow_name} for issue #{issue_number}"
+    auto_push: bool = True
+
+
+@dataclass
+class AgentValidationConfig:
+    """Agent validation configuration"""
+    min_word_count: int = 100
+    require_citations: bool = False
+    spell_check: bool = False
+
+
+@dataclass
+class AgentConfig:
+    """Agent configuration for automated issue processing"""
+    username: str
+    workflow_directory: str = "docs/workflow/deliverables"
+    template_directory: str = "templates"
+    output_directory: str = "study"
+    processing: Optional[AgentProcessingConfig] = None
+    git: Optional[AgentGitConfig] = None
+    validation: Optional[AgentValidationConfig] = None
+    
+    def __post_init__(self):
+        """Initialize default values after dataclass creation"""
+        if self.processing is None:
+            self.processing = AgentProcessingConfig()
+        if self.git is None:
+            self.git = AgentGitConfig()
+        if self.validation is None:
+            self.validation = AgentValidationConfig()
 
 
 @dataclass
@@ -67,13 +114,32 @@ class SearchConfig:
 
 
 @dataclass
+class WorkflowConfig:
+    """Workflow configuration"""
+    dir: str = "docs/workflow/deliverables"
+    output_dir: str = "study"
+
+
+@dataclass
+class GitConfig:
+    """Git configuration"""
+    enabled: bool = False
+    repository_path: Optional[str] = None
+    auto_commit: bool = False
+    auto_push: bool = False
+
+
+@dataclass
 class MonitorConfig:
     """Complete monitoring configuration"""
     sites: List[SiteConfig]
     github: GitHubConfig
     search: SearchConfig
+    agent: Optional[AgentConfig] = None
     storage_path: str = "processed_urls.json"
     log_level: str = "INFO"
+    git: Optional[GitConfig] = None
+    workflow: Optional[WorkflowConfig] = None
 
 
 class ConfigLoader:
@@ -123,6 +189,7 @@ class ConfigLoader:
                 "required": ["repository"],
                 "properties": {
                     "repository": {"type": "string", "pattern": r"^[^/]+/[^/]+$"},
+                    "token": {"type": "string", "minLength": 1},
                     "issue_labels": {
                         "type": "array",
                         "items": {"type": "string"}
@@ -158,10 +225,68 @@ class ConfigLoader:
                 },
                 "additionalProperties": False
             },
+            "agent": {
+                "type": "object",
+                "required": ["username"],
+                "properties": {
+                    "username": {"type": "string", "minLength": 1},
+                    "workflow_directory": {"type": "string"},
+                    "template_directory": {"type": "string"},
+                    "output_directory": {"type": "string"},
+                    "processing": {
+                        "type": "object",
+                        "properties": {
+                            "default_timeout_minutes": {"type": "integer", "minimum": 1},
+                            "max_concurrent_issues": {"type": "integer", "minimum": 1},
+                            "retry_attempts": {"type": "integer", "minimum": 0},
+                            "require_review": {"type": "boolean"},
+                            "auto_create_pr": {"type": "boolean"}
+                        },
+                        "additionalProperties": False
+                    },
+                    "git": {
+                        "type": "object",
+                        "properties": {
+                            "branch_prefix": {"type": "string"},
+                            "commit_message_template": {"type": "string"},
+                            "auto_push": {"type": "boolean"}
+                        },
+                        "additionalProperties": False
+                    },
+                    "validation": {
+                        "type": "object",
+                        "properties": {
+                            "min_word_count": {"type": "integer", "minimum": 0},
+                            "require_citations": {"type": "boolean"},
+                            "spell_check": {"type": "boolean"}
+                        },
+                        "additionalProperties": False
+                    }
+                },
+                "additionalProperties": False
+            },
             "storage_path": {"type": "string"},
             "log_level": {
                 "type": "string",
                 "enum": ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+            },
+            "git": {
+                "type": "object",
+                "properties": {
+                    "enabled": {"type": "boolean"},
+                    "repository_path": {"type": "string"},
+                    "auto_commit": {"type": "boolean"},
+                    "auto_push": {"type": "boolean"}
+                },
+                "additionalProperties": False
+            },
+            "workflow": {
+                "type": "object",
+                "properties": {
+                    "dir": {"type": "string"},
+                    "output_dir": {"type": "string"}
+                },
+                "additionalProperties": False
             }
         },
         "additionalProperties": False
@@ -238,15 +363,78 @@ class ConfigLoader:
             date_range_days=search_data.get('date_range_days', 1)
         )
         
+        # Build agent configuration (optional)
+        agent = None
+        if 'agent' in config_data:
+            agent_data = config_data['agent']
+            
+            # Build processing config
+            processing = AgentProcessingConfig()
+            if 'processing' in agent_data:
+                proc_data = agent_data['processing']
+                processing = AgentProcessingConfig(
+                    default_timeout_minutes=proc_data.get('default_timeout_minutes', 60),
+                    max_concurrent_issues=proc_data.get('max_concurrent_issues', 3),
+                    retry_attempts=proc_data.get('retry_attempts', 2),
+                    require_review=proc_data.get('require_review', True),
+                    auto_create_pr=proc_data.get('auto_create_pr', False)
+                )
+            
+            # Build git config
+            git = AgentGitConfig()
+            if 'git' in agent_data:
+                git_data = agent_data['git']
+                git = AgentGitConfig(
+                    branch_prefix=git_data.get('branch_prefix', 'agent'),
+                    commit_message_template=git_data.get('commit_message_template', 
+                                                       'Agent: {workflow_name} for issue #{issue_number}'),
+                    auto_push=git_data.get('auto_push', True)
+                )
+            
+            # Build validation config
+            validation = AgentValidationConfig()
+            if 'validation' in agent_data:
+                val_data = agent_data['validation']
+                validation = AgentValidationConfig(
+                    min_word_count=val_data.get('min_word_count', 100),
+                    require_citations=val_data.get('require_citations', False),
+                    spell_check=val_data.get('spell_check', False)
+                )
+            
+            agent = AgentConfig(
+                username=agent_data['username'],
+                workflow_directory=agent_data.get('workflow_directory', 'docs/workflow/deliverables'),
+                template_directory=agent_data.get('template_directory', 'templates'),
+                output_directory=agent_data.get('output_directory', 'study'),
+                processing=processing,
+                git=git,
+                validation=validation
+            )
+        
         return MonitorConfig(
             sites=sites,
             github=github,
             search=search,
+            agent=agent,
             storage_path=config_data.get('storage_path', 'processed_urls.json'),
             log_level=config_data.get('log_level', 'INFO')
         )
     
 
+
+
+class ConfigManager:
+    """Public interface for configuration management"""
+    
+    @classmethod
+    def load_config(cls, config_path: str) -> MonitorConfig:
+        """Load configuration from file"""
+        return ConfigLoader.load_config(config_path)
+    
+    @classmethod
+    def load_config_with_env_substitution(cls, config_path: str) -> MonitorConfig:
+        """Load configuration with environment variable substitution"""
+        return load_config_with_env_substitution(config_path)
 
 
 def load_config_with_env_substitution(config_path: str) -> MonitorConfig:
