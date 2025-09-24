@@ -18,7 +18,7 @@ class TestSiteMonitorService:
     
     @patch('src.site_monitor.GoogleCustomSearchClient')
     @patch('src.site_monitor.DeduplicationManager')
-    @patch('src.site_monitor.SiteMonitorIssueCreator')
+    @patch('src.site_monitor.GitHubIssueCreator')
     def test_service_initialization(self, mock_github_creator, mock_dedup_manager, 
                                   mock_search_client, sample_config):
         """Test initializing the SiteMonitorService"""
@@ -51,7 +51,7 @@ class TestSiteMonitorService:
     
     @patch('src.site_monitor.GoogleCustomSearchClient')
     @patch('src.site_monitor.DeduplicationManager')
-    @patch('src.site_monitor.SiteMonitorIssueCreator')
+    @patch('src.site_monitor.GitHubIssueCreator')
     def test_run_monitoring_cycle_success(self, mock_github_creator, mock_dedup_manager, 
                                         mock_search_client, sample_config):
         """Test successful monitoring cycle"""
@@ -121,7 +121,7 @@ class TestSiteMonitorService:
     
     @patch('src.site_monitor.GoogleCustomSearchClient')
     @patch('src.site_monitor.DeduplicationManager')
-    @patch('src.site_monitor.SiteMonitorIssueCreator')
+    @patch('src.site_monitor.GitHubIssueCreator')
     def test_run_monitoring_cycle_no_new_results(self, mock_github_creator, mock_dedup_manager, 
                                                 mock_search_client, sample_config):
         """Test monitoring cycle with no new results"""
@@ -168,7 +168,7 @@ class TestSiteMonitorService:
     
     @patch('src.site_monitor.GoogleCustomSearchClient')
     @patch('src.site_monitor.DeduplicationManager')
-    @patch('src.site_monitor.SiteMonitorIssueCreator')
+    @patch('src.site_monitor.GitHubIssueCreator')
     def test_run_monitoring_cycle_skip_issues(self, mock_github_creator, mock_dedup_manager, 
                                             mock_search_client, sample_config):
         """Test monitoring cycle with issue creation disabled"""
@@ -210,7 +210,7 @@ class TestSiteMonitorService:
     
     @patch('src.site_monitor.GoogleCustomSearchClient')
     @patch('src.site_monitor.DeduplicationManager')
-    @patch('src.site_monitor.SiteMonitorIssueCreator')
+    @patch('src.site_monitor.GitHubIssueCreator')
     def test_run_monitoring_cycle_error_handling(self, mock_github_creator, mock_dedup_manager, 
                                                 mock_search_client, sample_config):
         """Test monitoring cycle error handling"""
@@ -238,9 +238,8 @@ class TestSiteMonitorService:
     
     @patch('src.site_monitor.GoogleCustomSearchClient')
     @patch('src.site_monitor.DeduplicationManager')
-    @patch('src.site_monitor.SiteMonitorIssueCreator')
-    @patch('src.site_monitor.create_site_monitoring_labels')
-    def test_setup_repository(self, mock_create_labels, mock_github_creator, 
+    @patch('src.site_monitor.GitHubIssueCreator')
+    def test_setup_repository(self, mock_github_creator, 
                             mock_dedup_manager, mock_search_client, sample_config):
         """Test repository setup"""
         # Setup mocks
@@ -252,18 +251,19 @@ class TestSiteMonitorService:
         mock_dedup_manager.return_value = mock_dedup_instance
         mock_search_client.return_value = mock_search_instance
         
-        mock_create_labels.return_value = ['site-monitor', 'automated']
+        # Mock the create_monitoring_labels method to return labels
+        mock_github_instance.create_monitoring_labels.return_value = ['site-monitor', 'automated']
         
         # Run setup
         service = SiteMonitorService(sample_config, "test-token")
         service.setup_repository()
         
-        # Verify setup was called
-        mock_create_labels.assert_called_once_with(mock_github_instance)
+        # Verify setup was called on the github client instance
+        mock_github_instance.create_monitoring_labels.assert_called_once()
     
     @patch('src.site_monitor.GoogleCustomSearchClient')
     @patch('src.site_monitor.DeduplicationManager')
-    @patch('src.site_monitor.SiteMonitorIssueCreator')
+    @patch('src.site_monitor.GitHubIssueCreator')
     def test_cleanup_old_data(self, mock_github_creator, mock_dedup_manager, 
                             mock_search_client, sample_config):
         """Test cleaning up old data"""
@@ -306,7 +306,7 @@ class TestSiteMonitorService:
     
     @patch('src.site_monitor.GoogleCustomSearchClient')
     @patch('src.site_monitor.DeduplicationManager')
-    @patch('src.site_monitor.SiteMonitorIssueCreator')
+    @patch('src.site_monitor.GitHubIssueCreator')
     def test_get_monitoring_status(self, mock_github_creator, mock_dedup_manager, 
                                  mock_search_client, sample_config):
         """Test getting monitoring status"""
@@ -372,7 +372,7 @@ class TestFilterAndProcessing:
     
     @patch('src.site_monitor.GoogleCustomSearchClient')
     @patch('src.site_monitor.DeduplicationManager')
-    @patch('src.site_monitor.SiteMonitorIssueCreator')
+    @patch('src.site_monitor.GitHubIssueCreator')
     def test_filter_new_results(self, mock_github_creator, mock_dedup_manager, 
                               mock_search_client, sample_config):
         """Test filtering new results"""
@@ -417,7 +417,7 @@ class TestFilterAndProcessing:
     
     @patch('src.site_monitor.GoogleCustomSearchClient')
     @patch('src.site_monitor.DeduplicationManager')
-    @patch('src.site_monitor.SiteMonitorIssueCreator')
+    @patch('src.site_monitor.GitHubIssueCreator')
     def test_mark_results_processed(self, mock_github_creator, mock_dedup_manager, 
                                   mock_search_client, sample_config):
         """Test marking results as processed"""
@@ -463,7 +463,7 @@ class TestSiteMonitorIntegration:
     """Integration tests for site monitor with issue processor."""
     
     @patch('src.site_monitor.IssueProcessor')
-    @patch('src.site_monitor.SiteMonitorIssueCreator')
+    @patch('src.site_monitor.GitHubIssueCreator')
     @patch('src.site_monitor.DeduplicationManager')
     @patch('src.site_monitor.GoogleCustomSearchClient')
     def test_monitoring_cycle_with_issue_processing(

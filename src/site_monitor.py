@@ -14,7 +14,7 @@ from pathlib import Path
 from .config_manager import MonitorConfig, load_config_with_env_substitution
 from .search_client import GoogleCustomSearchClient, SearchResult, create_search_summary
 from .deduplication import DeduplicationManager, ProcessedEntry
-from .site_monitor_github import SiteMonitorIssueCreator, create_site_monitoring_labels
+from .github_issue_creator import GitHubIssueCreator
 
 # Import issue processor only when needed to avoid circular dependencies
 try:
@@ -50,7 +50,7 @@ class SiteMonitorService:
             storage_path=config.storage_path,
             retention_days=30
         )
-        self.github_client = SiteMonitorIssueCreator(
+        self.github_client = GitHubIssueCreator(
             token=github_token,
             repository=config.github.repository
         )
@@ -279,7 +279,7 @@ class SiteMonitorService:
         
         try:
             # Create monitoring labels
-            created_labels = create_site_monitoring_labels(self.github_client)
+            created_labels = self.github_client.create_monitoring_labels()
             if created_labels:
                 logger.info(f"Created labels: {', '.join(created_labels)}")
             else:
