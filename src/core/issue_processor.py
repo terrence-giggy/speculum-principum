@@ -26,12 +26,12 @@ from enum import Enum
 from datetime import datetime, timezone
 import json
 
-from .workflow.workflow_matcher import WorkflowMatcher, WorkflowLoadError
-from .utils.config_manager import ConfigManager
-from .clients.github_issue_creator import GitHubIssueCreator
-from .workflow.deliverable_generator import DeliverableGenerator, DeliverableSpec
-from .storage.git_manager import GitManager, GitOperationError
-from .utils.logging_config import get_logger, log_exception, log_retry_attempt
+from ..workflow.workflow_matcher import WorkflowMatcher, WorkflowLoadError
+from ..utils.config_manager import ConfigManager
+from ..clients.github_issue_creator import GitHubIssueCreator
+from ..workflow.deliverable_generator import DeliverableGenerator, DeliverableSpec
+from ..storage.git_manager import GitManager, GitOperationError
+from ..utils.logging_config import get_logger, log_exception, log_retry_attempt
 
 
 class IssueProcessingError(Exception):
@@ -1345,7 +1345,7 @@ class GitHubIntegratedIssueProcessor(IssueProcessor):
         Returns:
             Tuple of (batch metrics, list of processing results)
         """
-        from .core.batch_processor import BatchProcessor, BatchConfig, BatchProgressReporter
+        from .batch_processor import BatchProcessor, BatchConfig, BatchProgressReporter
         
         # Configure batch processing
         batch_config = BatchConfig(
@@ -1385,7 +1385,7 @@ class GitHubIntegratedIssueProcessor(IssueProcessor):
         Returns:
             Tuple of (batch metrics, list of processing results)
         """
-        from .core.batch_processor import BatchProcessor, BatchConfig, BatchProgressReporter
+        from .batch_processor import BatchProcessor, BatchConfig, BatchProgressReporter
         
         # Build filters
         filters = {}

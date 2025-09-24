@@ -9,8 +9,8 @@ import tempfile
 import os
 from pathlib import Path
 
-from src.issue_processor import GitHubIntegratedIssueProcessor, IssueProcessingStatus
-from src.config_manager import MonitorConfig, ConfigManager
+from src.core.issue_processor import GitHubIntegratedIssueProcessor, IssueProcessingStatus
+from src.utils.config_manager import MonitorConfig, ConfigManager
 
 
 class TestGitHubE2EIntegration:
@@ -54,7 +54,7 @@ log_level: "INFO"
         return config_path
     
     @pytest.mark.e2e
-    @patch('src.issue_processor.GitHubIssueCreator')
+    @patch('src.core.issue_processor.GitHubIssueCreator')
     def test_issue_processor_initialization(
         self,
         mock_github_creator,

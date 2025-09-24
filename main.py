@@ -9,9 +9,9 @@ import sys
 import argparse
 from dotenv import load_dotenv
 
-from src.github_issue_creator import GitHubIssueCreator
-from src.site_monitor import create_monitor_service_from_config
-from src.logging_config import setup_logging
+from src.clients.github_issue_creator import GitHubIssueCreator
+from src.core.site_monitor import create_monitor_service_from_config
+from src.utils.logging_config import setup_logging
 
 
 def setup_argument_parser() -> argparse.ArgumentParser:
@@ -289,8 +289,8 @@ def handle_cleanup_command(args, github_token: str) -> None:
 
 def handle_process_issues_command(args, github_token: str, repo_name: str) -> None:
     """Handle process-issues command."""
-    from src.issue_processor import GitHubIntegratedIssueProcessor, IssueProcessingStatus
-    from src.cli_helpers import (
+    from src.core.issue_processor import GitHubIntegratedIssueProcessor, IssueProcessingStatus
+    from src.utils.cli_helpers import (
         ConfigValidator, ProgressReporter, IssueResultFormatter,
         BatchProcessor, safe_execute_cli_command, CliResult
     )
@@ -411,7 +411,7 @@ def handle_process_issues_command(args, github_token: str, repo_name: str) -> No
                         )
                     elif args.from_monitor:
                         # Use site monitor to find unprocessed issues
-                        from src.site_monitor import create_monitor_service_from_config
+                        from src.core.site_monitor import create_monitor_service_from_config
                         
                         reporter.show_info("🔍 Using site monitor to find unprocessed issues...")
                         
@@ -426,7 +426,7 @@ def handle_process_issues_command(args, github_token: str, repo_name: str) -> No
                         
                         if monitor_result['success']:
                             # Convert monitor results to expected format
-                            from src.issue_processor import ProcessingResult, IssueProcessingStatus
+                            from src.core.issue_processor import ProcessingResult, IssueProcessingStatus
                             
                             batch_results = []
                             for result in monitor_result['processed_issues']:
@@ -440,7 +440,7 @@ def handle_process_issues_command(args, github_token: str, repo_name: str) -> No
                                 ))
                             
                             # Create metrics
-                            from src.batch_processor import BatchMetrics
+                            from src.core.batch_processor import BatchMetrics
                             from datetime import datetime
                             
                             total_found = monitor_result['total_found']

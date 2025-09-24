@@ -9,7 +9,7 @@ from github import Github
 from github.Repository import Repository
 from github.Issue import Issue
 from github.GithubException import GithubException
-from src.config_manager import MonitorConfig, SiteConfig, GitHubConfig, SearchConfig
+from src.utils.config_manager import MonitorConfig, SiteConfig, GitHubConfig, SearchConfig
 
 
 @pytest.fixture
