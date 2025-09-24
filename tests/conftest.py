@@ -100,6 +100,62 @@ def environment_variables(monkeypatch, mock_github_token, mock_repository_name):
     """Set up environment variables for testing"""
     monkeypatch.setenv("GITHUB_TOKEN", mock_github_token)
     monkeypatch.setenv("GITHUB_REPOSITORY", mock_repository_name)
+    monkeypatch.setenv("GOOGLE_API_KEY", "test_google_api_key")
+    monkeypatch.setenv("GOOGLE_SEARCH_ENGINE_ID", "test_search_engine_id")
+
+
+@pytest.fixture
+def sample_config_with_agent():
+    """Create sample configuration with agent enabled"""
+    config = Mock(spec=MonitorConfig)
+    
+    # GitHub configuration
+    config.github = Mock(spec=GitHubConfig)
+    config.github.repository = "owner/repo"
+    
+    # Search configuration
+    config.search = Mock(spec=SearchConfig)
+    config.search.daily_query_limit = 90
+    config.search.results_per_query = 10
+    config.search.date_range_days = 7
+    
+    # Sites configuration
+    site = Mock(spec=SiteConfig)
+    site.name = "Example Site"
+    site.query = "example search query"
+    config.sites = [site]
+    
+    # Storage and logging
+    config.storage_path = "test_processed.json"
+    config.log_level = "INFO"
+    config.deduplication_retention_days = 30
+    
+    # Agent configuration (enabled)
+    config.agent = Mock()
+    config.agent.enabled = True
+    config.agent.workflow_dir = "docs/workflow/deliverables"
+    config.agent.output_dir = "study"
+    config.agent.enable_git = True
+    
+    return config
+
+
+@pytest.fixture
+def minimal_config():
+    """Create minimal configuration for basic tests"""
+    config = Mock(spec=MonitorConfig)
+    config.github = Mock()
+    config.github.repository = "test/repo"
+    config.search = Mock()
+    config.search.daily_query_limit = 100
+    config.sites = [Mock(name="test-site")]
+    config.storage_path = "test.json"
+    config.log_level = "INFO"
+    config.agent = Mock()
+    config.agent.enabled = False
+    return config
+    monkeypatch.setenv("GITHUB_TOKEN", mock_github_token)
+    monkeypatch.setenv("GITHUB_REPOSITORY", mock_repository_name)
 
 
 @pytest.fixture

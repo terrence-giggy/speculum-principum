@@ -161,7 +161,6 @@
   - **Files**:
     - `.github/workflows/process-issues.yml`: GitHub Actions workflow
     - `.github/workflows/README.md`: Workflow documentation
-    - `scripts/check-issues.sh`: Helper script for issue checking
   - **Step Dependencies**: Step 13
   - **User Instructions**: Enable GitHub Actions and configure secrets
 

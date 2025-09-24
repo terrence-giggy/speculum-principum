@@ -199,6 +199,74 @@ class TestGitHubIssueCreator:
         
         with pytest.raises(RuntimeError, match="Failed to get repository info: Repository not found"):
             creator.get_repository_info()
+    
+    @patch('src.github_issue_creator.Github')
+    def test_get_issue_success(self, mock_github_class, mock_github_token, mock_repository_name):
+        """Test successful issue retrieval"""
+        # Setup mocks
+        mock_github_instance = Mock()
+        mock_repo = Mock()
+        mock_issue = Mock()
+        mock_issue.number = 123
+        mock_issue.title = "Test Issue"
+        
+        mock_github_class.return_value = mock_github_instance
+        mock_github_instance.get_repo.return_value = mock_repo
+        mock_repo.get_issue.return_value = mock_issue
+        
+        # Test
+        creator = GitHubIssueCreator(mock_github_token, mock_repository_name)
+        result = creator.get_issue(123)
+        
+        # Assertions
+        mock_repo.get_issue.assert_called_once_with(123)
+        assert result == mock_issue
+    
+    @patch('src.github_issue_creator.Github')
+    def test_get_issues_with_labels(self, mock_github_class, mock_github_token, mock_repository_name):
+        """Test getting issues with specific labels"""
+        # Setup mocks
+        mock_github_instance = Mock()
+        mock_repo = Mock()
+        mock_issue1 = Mock()
+        mock_issue1.number = 1
+        mock_issue2 = Mock()
+        mock_issue2.number = 2
+        
+        mock_github_class.return_value = mock_github_instance
+        mock_github_instance.get_repo.return_value = mock_repo
+        mock_repo.get_issues.return_value = [mock_issue1, mock_issue2]
+        
+        # Test
+        creator = GitHubIssueCreator(mock_github_token, mock_repository_name)
+        result = creator.get_issues_with_labels(["site-monitor", "bug"], state="open", limit=5)
+        
+        # Assertions
+        mock_repo.get_issues.assert_called_once_with(state="open", labels=["site-monitor", "bug"])
+        assert len(result) == 2
+        assert result[0] == mock_issue1
+        assert result[1] == mock_issue2
+    
+    @patch('src.github_issue_creator.Github')
+    def test_assign_issue(self, mock_github_class, mock_github_token, mock_repository_name):
+        """Test issue assignment"""
+        # Setup mocks
+        mock_github_instance = Mock()
+        mock_repo = Mock()
+        mock_issue = Mock()
+        
+        mock_github_class.return_value = mock_github_instance
+        mock_github_instance.get_repo.return_value = mock_repo
+        mock_repo.get_issue.return_value = mock_issue
+        
+        # Test
+        creator = GitHubIssueCreator(mock_github_token, mock_repository_name)
+        result = creator.assign_issue(123, ["user1", "user2"])
+        
+        # Assertions
+        mock_repo.get_issue.assert_called_once_with(123)
+        mock_issue.add_to_assignees.assert_called_once_with("user1", "user2")
+        assert result is True
 
 
 @pytest.mark.integration

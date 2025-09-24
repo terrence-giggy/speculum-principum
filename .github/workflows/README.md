@@ -40,7 +40,7 @@ Discovers and validates issues that need processing:
 - Filters for open issues with `site-monitor` label
 - Excludes issues already assigned to `github-actions[bot]`
 - Outputs a list of issues for parallel processing
-- Uses fallback logic if helper scripts are unavailable
+- Uses Python-based issue discovery integrated with the project's existing components
 
 #### 2. `process-issues`
 

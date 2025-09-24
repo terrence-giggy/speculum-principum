@@ -47,18 +47,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
-          # Create scripts directory if it doesn't exist
-          mkdir -p scripts
-          
-          # Use the check-issues script to find processable issues
-          chmod +x ./scripts/check-issues.sh || true
-          
-          if [ -f "./scripts/check-issues.sh" ]; then
-            # Use the helper script if it exists
-            ./scripts/check-issues.sh
-          else
-            # Fallback to Python-based issue checking
-            python3 << 'EOF'
+          # Python-based issue checking
+          python3 << 'EOF'
           import os
           import json
           import sys

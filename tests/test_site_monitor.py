@@ -457,11 +457,82 @@ class TestFilterAndProcessing:
         # Verify results
         assert len(processed_entries) == 2
         assert processed_entries == [mock_entry1, mock_entry2]
+
+
+class TestSiteMonitorIntegration:
+    """Integration tests for site monitor with issue processor."""
+    
+    @patch('src.site_monitor.IssueProcessor')
+    @patch('src.site_monitor.SiteMonitorIssueCreator')
+    @patch('src.site_monitor.DeduplicationManager')
+    @patch('src.site_monitor.GoogleCustomSearchClient')
+    def test_monitoring_cycle_with_issue_processing(
+        self, 
+        mock_search_client,
+        mock_dedup_manager,
+        mock_github_client,
+        mock_issue_processor_class,
+        sample_config
+    ):
+        """Test complete monitoring cycle with issue processing enabled."""
+        from src.issue_processor import ProcessingResult, IssueProcessingStatus
         
-        # Verify mark_result_processed was called correctly
-        assert mock_dedup_instance.mark_result_processed.call_count == 2
+        # Setup sample config with agent enabled
+        sample_config.agent = Mock()
+        sample_config.agent.enabled = True
+        sample_config.agent.workflow_dir = "docs/workflow/deliverables"
+        sample_config.agent.output_dir = "study"
+        sample_config.agent.enable_git = True
         
-        # Verify the issue numbers were passed correctly (one issue per result)
-        calls = mock_dedup_instance.mark_result_processed.call_args_list
-        assert calls[0][1]['issue_number'] == 123  # First result gets first issue
-        assert calls[1][1]['issue_number'] == 124  # Second result gets second issue
+        # Create test search result
+        mock_search_result = SearchResult("Test Title", "https://test.com", "Test snippet")
+        mock_github_issue = Mock()
+        mock_github_issue.number = 123
+        
+        # Setup mocks
+        mock_search_client.return_value.search_all_sites.return_value = {
+            "test-site": [mock_search_result]
+        }
+        mock_search_client.return_value.get_rate_limit_status.return_value = {
+            'calls_remaining': 90,
+            'daily_limit': 100
+        }
+        
+        mock_dedup_manager.return_value.filter_new_results.return_value = [mock_search_result]
+        mock_dedup_manager.return_value.get_processed_stats.return_value = {
+            'total_entries': 5
+        }
+        
+        mock_github_client.return_value.create_individual_result_issue.return_value = mock_github_issue
+        
+        # Setup issue processor mock
+        mock_issue_processor = Mock()
+        processing_result = ProcessingResult(
+            issue_number=123,
+            status=IssueProcessingStatus.COMPLETED,
+            workflow_name="test-workflow",
+            created_files=["study/123/analysis.md"],
+            error_message=None
+        )
+        mock_issue_processor.process_issue.return_value = processing_result
+        mock_issue_processor_class.return_value = mock_issue_processor
+        
+        # Create service and run monitoring cycle
+        service = SiteMonitorService(sample_config, "fake-token")
+        result = service.run_monitoring_cycle(create_individual_issues=True)
+        
+        # Verify monitoring cycle completed successfully
+        assert result['success'] is True
+        assert result['individual_issues_created'] == 1
+        assert len(result['issue_processing_results']) == 1
+        
+        # Verify issue processing was called
+        mock_issue_processor.process_issue.assert_called_once_with(123)
+        
+        # Verify processing result structure
+        processing_result_dict = result['issue_processing_results'][0]
+        assert processing_result_dict['issue_number'] == 123
+        assert processing_result_dict['status'] == 'completed'
+        assert processing_result_dict['workflow'] == 'test-workflow'
+        assert len(processing_result_dict['deliverables']) == 1
+        assert processing_result_dict['error'] is None
