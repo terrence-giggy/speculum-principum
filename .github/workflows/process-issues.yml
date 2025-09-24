@@ -1,4 +1,7 @@
 name: Process Issues with Automated Workflows
+permissions:
+  contents: read
+  issues: write
 
 # Trigger on issue events and manual dispatch for testing
 on:
