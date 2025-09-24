@@ -39,45 +39,55 @@ speculum-principum/
 │       ├── site-monitoring.yml      # Daily monitoring workflow
 │       ├── setup-monitoring.yml     # Repository setup workflow
 │       └── weekly-cleanup.yml       # Weekly data cleanup workflow
+├── .vscode/                         # VS Code debugging configurations and tasks
 ├── src/
 │   ├── __init__.py
-│   ├── config_manager.py           # Configuration loading and validation
-│   ├── search_client.py            # Google Custom Search API client
-│   ├── deduplication.py           # URL/content deduplication system
-│   ├── github_issue_creator.py    # Basic GitHub API operations
-│   ├── site_monitor_github.py     # Enhanced GitHub operations for monitoring
-│   ├── site_monitor.py            # Main monitoring service orchestration
-│   ├── issue_processor.py         # Automated issue processing engine
-│   ├── workflow_matcher.py        # Workflow discovery and matching logic
-│   ├── deliverable_generator.py   # Document generation system
-│   ├── template_engine.py         # Template processing and rendering
-│   ├── git_manager.py             # Git operations and version control
-│   ├── batch_processor.py         # Batch processing for multiple issues
-│   └── cli_helpers.py             # Command-line interface utilities
-├── docs/
-│   ├── issue-processor.md          # Issue processor documentation
-│   ├── workflow-creation-guide.md  # Guide for creating workflows
+│   ├── clients/
+│   │   ├── github_issue_creator.py  # GitHub API operations
+│   │   └── search_client.py         # Google Custom Search API client
+│   ├── core/
+│   │   ├── site_monitor.py          # Main monitoring service orchestration
+│   │   ├── issue_processor.py       # Automated issue processing engine
+│   │   ├── batch_processor.py       # Batch processing for multiple issues
+│   │   ├── deduplication.py         # URL/content deduplication system
+│   │   └── workflow_orchestrator.py # Workflow execution coordination
+│   ├── storage/
+│   │   ├── git_manager.py           # Git operations and version control
+│   │   └── issue_state_manager.py   # Issue processing state management
+│   ├── utils/
+│   │   ├── config_manager.py        # Configuration loading and validation
+│   │   ├── cli_helpers.py           # Command-line interface utilities
+│   │   ├── logging_config.py        # Logging configuration
+│   │   └── error_handler.py         # Error handling utilities
 │   └── workflow/
-│       └── deliverables/           # Workflow definition files
+│       ├── workflow_matcher.py      # Workflow discovery and matching logic
+│       ├── deliverable_generator.py # Document generation system
+│       ├── template_engine.py       # Template processing and rendering
+│       └── workflow_schemas.py      # Workflow validation schemas
+├── docs/
+│   ├── issue-processor.md           # Issue processor documentation
+│   ├── workflow-creation-guide.md   # Guide for creating workflows
+│   ├── development/                 # Development documentation
+│   └── workflow/
+│       └── deliverables/            # Workflow definition files
 ├── templates/
-│   ├── base_deliverable.md         # Base template for documents
-│   └── research_analysis.md        # Research-specific template
+│   ├── base_deliverable.md          # Base template for documents
+│   └── research_analysis.md         # Research-specific template
 ├── examples/
-│   └── sample-workflows/           # Example workflow definitions
+│   └── sample-workflows/            # Example workflow definitions
+├── study/                           # Generated content output directory
 ├── tests/
-│   ├── __init__.py
-│   ├── test_config_manager.py
-│   ├── test_search_client.py
-│   ├── test_deduplication.py
-│   ├── test_site_monitor.py
-│   ├── test_issue_processor.py     # Issue processor tests
-│   ├── test_workflow_matcher.py    # Workflow matching tests
-│   └── [additional test files]
-├── main.py                         # Application entry point
-├── config.yaml                     # Site monitoring configuration
-├── requirements.txt                # Python dependencies
-├── pyproject.toml                 # Project configuration
-└── README.md                       # This file
+│   ├── unit/                        # Unit tests
+│   ├── integration/                 # Integration tests
+│   ├── e2e/                         # End-to-end tests
+│   └── [test files]                 # Individual test modules
+├── main.py                          # Application entry point
+├── config.yaml                      # Site monitoring configuration
+├── requirements.txt                 # Python dependencies
+├── pyproject.toml                   # Project configuration
+├── Makefile                         # Build and development tasks
+├── run_tests.sh                     # Test execution script
+└── README.md                        # This file
 ```
 
 ## 🚀 Quick Start
