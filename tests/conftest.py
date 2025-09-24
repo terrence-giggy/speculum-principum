@@ -4,11 +4,12 @@ Test fixtures and mock data for Speculum Principum tests
 
 import pytest
 from unittest.mock import Mock, MagicMock
+from pathlib import Path
 from github import Github
 from github.Repository import Repository
 from github.Issue import Issue
 from github.GithubException import GithubException
-from src.config_manager import MonitorConfig, SiteConfig, GitHubConfig, SearchConfig
+from src.utils.config_manager import MonitorConfig, SiteConfig, GitHubConfig, SearchConfig
 
 
 @pytest.fixture
@@ -99,6 +100,62 @@ def environment_variables(monkeypatch, mock_github_token, mock_repository_name):
     """Set up environment variables for testing"""
     monkeypatch.setenv("GITHUB_TOKEN", mock_github_token)
     monkeypatch.setenv("GITHUB_REPOSITORY", mock_repository_name)
+    monkeypatch.setenv("GOOGLE_API_KEY", "test_google_api_key")
+    monkeypatch.setenv("GOOGLE_SEARCH_ENGINE_ID", "test_search_engine_id")
+
+
+@pytest.fixture
+def sample_config_with_agent():
+    """Create sample configuration with agent enabled"""
+    config = Mock(spec=MonitorConfig)
+    
+    # GitHub configuration
+    config.github = Mock(spec=GitHubConfig)
+    config.github.repository = "owner/repo"
+    
+    # Search configuration
+    config.search = Mock(spec=SearchConfig)
+    config.search.daily_query_limit = 90
+    config.search.results_per_query = 10
+    config.search.date_range_days = 7
+    
+    # Sites configuration
+    site = Mock(spec=SiteConfig)
+    site.name = "Example Site"
+    site.query = "example search query"
+    config.sites = [site]
+    
+    # Storage and logging
+    config.storage_path = "test_processed.json"
+    config.log_level = "INFO"
+    config.deduplication_retention_days = 30
+    
+    # Agent configuration (enabled)
+    config.agent = Mock()
+    config.agent.enabled = True
+    config.agent.workflow_dir = "docs/workflow/deliverables"
+    config.agent.output_dir = "study"
+    config.agent.enable_git = True
+    
+    return config
+
+
+@pytest.fixture
+def minimal_config():
+    """Create minimal configuration for basic tests"""
+    config = Mock(spec=MonitorConfig)
+    config.github = Mock()
+    config.github.repository = "test/repo"
+    config.search = Mock()
+    config.search.daily_query_limit = 100
+    config.sites = [Mock(name="test-site")]
+    config.storage_path = "test.json"
+    config.log_level = "INFO"
+    config.agent = Mock()
+    config.agent.enabled = False
+    return config
+    monkeypatch.setenv("GITHUB_TOKEN", mock_github_token)
+    monkeypatch.setenv("GITHUB_REPOSITORY", mock_repository_name)
 
 
 @pytest.fixture
@@ -182,3 +239,277 @@ def sample_config():
         storage_path="test_processed.json",
         log_level="INFO"
     )
+
+
+# E2E Test Fixtures
+@pytest.fixture
+def e2e_temp_dir():
+    """Create temporary directory for e2e tests."""
+    import tempfile
+    import shutil
+    
+    temp_dir = Path(tempfile.mkdtemp(prefix="speculum_e2e_"))
+    
+    # Create subdirectories
+    (temp_dir / "workflows").mkdir()
+    (temp_dir / "output").mkdir()
+    (temp_dir / "templates").mkdir()
+    
+    # Copy template files
+    template_src = Path(__file__).parent.parent / "templates"
+    if template_src.exists():
+        for template_file in template_src.glob("*.md"):
+            shutil.copy2(template_file, temp_dir / "templates")
+    
+    yield temp_dir
+    
+    # Cleanup
+    shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+@pytest.fixture
+def e2e_config(e2e_temp_dir):
+    """Create e2e test configuration file."""
+    import yaml
+    
+    config_data = {
+        'sites': [
+            {
+                'url': 'https://example.com',
+                'name': 'Example Site',
+                'max_results': 2
+            }
+        ],
+        'github': {
+            'repository': 'testorg/testrepo',
+            'issue_labels': ['site-monitor', 'automated'],
+            'default_assignees': ['testuser']
+        },
+        'search': {
+            'api_key': 'test-api-key',
+            'search_engine_id': 'test-search-engine',
+            'daily_query_limit': 90,
+            'results_per_query': 10,
+            'date_range_days': 30
+        },
+        'agent': {
+            'username': 'testuser',
+            'workflow_directory': str(e2e_temp_dir / "workflows"),
+            'template_directory': str(e2e_temp_dir / "templates"),
+            'output_directory': str(e2e_temp_dir / "output"),
+            'processing': {
+                'default_timeout_minutes': 60,
+                'max_concurrent_issues': 3,
+                'retry_attempts': 2,
+                'require_review': True,
+                'auto_create_pr': False
+            },
+            'git': {
+                'branch_prefix': 'test-agent',
+                'commit_message_template': 'Test Agent: {workflow_name} for issue #{issue_number}',
+                'auto_push': False
+            },
+            'validation': {
+                'min_word_count': 50,
+                'require_citations': False,
+                'spell_check': False
+            }
+        },
+        'storage_path': str(e2e_temp_dir / "test_processed.json"),
+        'log_level': 'DEBUG'
+    }
+    
+    config_file = e2e_temp_dir / "e2e_config.yaml"
+    with open(config_file, 'w') as f:
+        yaml.dump(config_data, f)
+    
+    return config_file
+
+
+@pytest.fixture
+def mock_research_issue():
+    """Mock GitHub issue for research workflow testing."""
+    issue = Mock()
+    issue.number = 123
+    issue.title = "Research Analysis Test Issue"
+    issue.body = "This is a test issue for research analysis workflow"
+    issue.labels = [
+        Mock(name="site-monitor"),
+        Mock(name="research"),
+        Mock(name="analysis")
+    ]
+    issue.html_url = "https://github.com/testorg/testrepo/issues/123"
+    issue.state = "open"
+    issue.user = Mock(login="testuser")
+    issue.created_at = "2024-01-01T00:00:00Z"
+    issue.updated_at = "2024-01-01T00:00:00Z"
+    return issue
+
+
+@pytest.fixture
+def mock_technical_issue():
+    """Mock GitHub issue for technical review workflow testing."""
+    issue = Mock()
+    issue.number = 456
+    issue.title = "Technical Review Test Issue"
+    issue.body = "This is a test issue for technical review workflow"
+    issue.labels = [
+        Mock(name="site-monitor"),
+        Mock(name="technical-review"),
+        Mock(name="architecture")
+    ]
+    issue.html_url = "https://github.com/testorg/testrepo/issues/456"
+    issue.state = "open"
+    issue.user = Mock(login="testuser")
+    issue.created_at = "2024-01-01T00:00:00Z"
+    issue.updated_at = "2024-01-01T00:00:00Z"
+    return issue
+
+
+@pytest.fixture
+def research_workflow_data(e2e_temp_dir):
+    """Create research workflow configuration for testing."""
+    import yaml
+    
+    workflow_data = {
+        'name': 'Research Analysis',
+        'description': 'Comprehensive research and analysis workflow for detailed investigation',
+        'version': '1.0.0',
+        'trigger_labels': ['research', 'analysis', 'deep-dive'],
+        'output': {
+            'folder_structure': 'study/{issue_number}-research-analysis',
+            'file_pattern': '{deliverable_name}.md',
+            'branch_pattern': 'research-analysis/issue-{issue_number}'
+        },
+        'deliverables': [
+            {
+                'name': 'research-overview',
+                'title': 'Research Overview',
+                'description': 'High-level overview and scope definition',
+                'template': 'base_deliverable.md',
+                'required': True,
+                'order': 1
+            },
+            {
+                'name': 'background-analysis',
+                'title': 'Background Analysis',
+                'description': 'Historical context and existing knowledge review',
+                'template': 'base_deliverable.md',
+                'required': True,
+                'order': 2
+            },
+            {
+                'name': 'methodology',
+                'title': 'Research Methodology',
+                'description': 'Approach and methods used for investigation',
+                'template': 'base_deliverable.md',
+                'required': True,
+                'order': 3
+            },
+            {
+                'name': 'findings',
+                'title': 'Key Findings',
+                'description': 'Primary research results and discoveries',
+                'template': 'base_deliverable.md',
+                'required': True,
+                'order': 4
+            }
+        ]
+    }
+    
+    workflow_file = e2e_temp_dir / "workflows" / "research-analysis.yaml"
+    with open(workflow_file, 'w') as f:
+        yaml.dump(workflow_data, f)
+    
+    return workflow_data
+
+
+@pytest.fixture
+def technical_workflow_data(e2e_temp_dir):
+    """Create technical review workflow configuration for testing."""
+    import yaml
+    
+    workflow_data = {
+        'name': 'Technical Review',
+        'description': 'Structured technical review and assessment workflow',
+        'version': '1.0.0',
+        'trigger_labels': ['technical-review', 'code-review', 'architecture', 'security-review'],
+        'output': {
+            'folder_structure': 'study/{issue_number}-technical-review',
+            'file_pattern': '{deliverable_name}.md',
+            'branch_pattern': 'technical-review/issue-{issue_number}'
+        },
+        'deliverables': [
+            {
+                'name': 'technical-overview',
+                'title': 'Technical Overview',
+                'description': 'High-level technical assessment and scope',
+                'template': 'base_deliverable.md',
+                'required': True,
+                'order': 1
+            },
+            {
+                'name': 'architecture-analysis',
+                'title': 'Architecture Analysis',
+                'description': 'System architecture review and assessment',
+                'template': 'base_deliverable.md',
+                'required': True,
+                'order': 2
+            },
+            {
+                'name': 'security-assessment',
+                'title': 'Security Assessment',
+                'description': 'Security implications and vulnerability analysis',
+                'template': 'base_deliverable.md',
+                'required': True,
+                'order': 3
+            },
+            {
+                'name': 'performance-analysis',
+                'title': 'Performance Analysis',
+                'description': 'Performance characteristics and optimization opportunities',
+                'template': 'base_deliverable.md',
+                'required': True,
+                'order': 4
+            }
+        ]
+    }
+    
+    workflow_file = e2e_temp_dir / "workflows" / "technical-review.yaml"
+    with open(workflow_file, 'w') as f:
+        yaml.dump(workflow_data, f)
+    
+    return workflow_data
+
+
+@pytest.fixture
+def mock_github_client_e2e(mock_research_issue, mock_technical_issue):
+    """Enhanced mock GitHub client for e2e testing."""
+    github = Mock()
+    repo = Mock()
+    
+    # Setup repository mock
+    repo.name = "testrepo"
+    repo.full_name = "testorg/testrepo"
+    repo.description = "Test repository for E2E testing"
+    repo.html_url = "https://github.com/testorg/testrepo"
+    
+    # Setup issue retrieval
+    def get_issue(number):
+        if number == 123:
+            return mock_research_issue
+        elif number == 456:
+            return mock_technical_issue
+        else:
+            # Return a generic issue for other numbers
+            issue = Mock()
+            issue.number = number
+            issue.title = f"Test Issue {number}"
+            issue.body = f"Test issue body for {number}"
+            issue.labels = [Mock(name="site-monitor")]
+            return issue
+    
+    repo.get_issue = get_issue
+    github.get_repo.return_value = repo
+    
+    return github
