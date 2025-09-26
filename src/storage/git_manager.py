@@ -21,6 +21,7 @@ review of generated content.
 import os
 import subprocess
 import logging
+import re
 from typing import Dict, List, Optional, Tuple, Any
 from pathlib import Path
 from dataclasses import dataclass
@@ -577,7 +578,6 @@ class GitManager:
     
     def _slugify(self, text: str) -> str:
         """Convert text to a URL-safe slug."""
-        import re
         
         # Convert to lowercase and replace spaces with hyphens
         slug = text.lower().replace(' ', '-')

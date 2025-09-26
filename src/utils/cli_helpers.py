@@ -141,7 +141,7 @@ class ConfigValidator:
         
         try:
             # Try to load the configuration
-            ConfigManager.load_config(config_path)
+            ConfigManager.load_config_with_env_substitution(config_path)
             return CliResult(
                 success=True,
                 message="Configuration file is valid"
