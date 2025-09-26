@@ -19,6 +19,7 @@ from src.core.issue_processor import (
 )
 from src.core.processing_orchestrator import ProcessingOrchestrator
 from src.core.site_monitor import create_monitor_service_from_config
+from src.agents.ai_workflow_assignment_agent import AIWorkflowAssignmentAgent
 from src.utils.cli_helpers import (
     ConfigValidator, 
     ProgressReporter, 
@@ -52,8 +53,9 @@ def setup_argument_parser() -> argparse.ArgumentParser:
     setup_status_parser(subparsers)
     setup_cleanup_parser(subparsers)
     
-    # Issue processing command
+    # Issue processing commands
     setup_process_issues_parser(subparsers)
+    setup_assign_workflows_parser(subparsers)
     
     return parser
 
@@ -193,6 +195,45 @@ def setup_process_issues_parser(subparsers) -> None:
         '--from-monitor', 
         action='store_true', 
         help='Use site monitor to find and process unprocessed issues'
+    )
+
+
+def setup_assign_workflows_parser(subparsers) -> None:
+    """Set up assign-workflows command parser."""
+    assign_parser = subparsers.add_parser(
+        'assign-workflows', 
+        help='Assign workflows to unassigned site-monitor issues using AI analysis'
+    )
+    assign_parser.add_argument(
+        '--config', 
+        default='config.yaml', 
+        help='Configuration file path'
+    )
+    assign_parser.add_argument(
+        '--limit', 
+        type=int, 
+        default=20, 
+        help='Maximum issues to process'
+    )
+    assign_parser.add_argument(
+        '--dry-run', 
+        action='store_true', 
+        help='Show what would be done without making changes'
+    )
+    assign_parser.add_argument(
+        '--verbose', '-v', 
+        action='store_true', 
+        help='Show detailed progress information'
+    )
+    assign_parser.add_argument(
+        '--statistics', 
+        action='store_true', 
+        help='Show workflow assignment statistics'
+    )
+    assign_parser.add_argument(
+        '--disable-ai', 
+        action='store_true', 
+        help='Disable AI analysis and use label-based matching only (fallback mode)'
     )
 
 
@@ -538,6 +579,188 @@ def handle_process_issues_command(args, github_token: str, repo_name: str) -> No
         sys.exit(exit_code)
 
 
+def handle_assign_workflows_command(args, github_token: str, repo_name: str) -> None:
+    """Handle assign-workflows command."""
+    
+    def assign_workflows_command() -> CliResult:
+        # Validate configuration and environment
+        config_result = ConfigValidator.validate_config_file(args.config)
+        if not config_result.success:
+            return config_result
+        
+        try:
+            # Determine whether to disable AI based on arguments and configuration
+            disable_ai = args.disable_ai
+            
+            # Load AI configuration from file
+            ai_enabled = True  # Default to enabled
+            try:
+                from src.utils.config_manager import ConfigManager
+                config = ConfigManager.load_config(args.config)
+                ai_config = getattr(config, 'ai', None)
+                if ai_config and not ai_config.enabled:
+                    ai_enabled = False
+                if disable_ai:
+                    ai_enabled = False
+            except Exception:
+                ai_enabled = True  # Default to enabled if config fails
+            
+            # Initialize the AI workflow assignment agent
+            agent = AIWorkflowAssignmentAgent(
+                github_token=github_token,
+                repo_name=repo_name,
+                config_path=args.config,
+                enable_ai=ai_enabled
+            )
+            
+            agent_type = "AI-enhanced" if ai_enabled else "Label-based (fallback)"
+            
+            reporter = ProgressReporter(verbose=args.verbose)
+            
+            if args.statistics:
+                # Show statistics instead of processing
+                reporter.start_operation("Fetching assignment statistics")
+                stats = agent.get_assignment_statistics()
+                
+                if 'error' in stats:
+                    return CliResult(
+                        success=False,
+                        message=f"❌ Failed to get statistics: {stats['error']}",
+                        error_code=1
+                    )
+                
+                # Format statistics output
+                stats_lines = [
+                    f"📊 **Workflow Assignment Statistics**",
+                    f"🤖 **Agent Type:** {agent_type}",
+                    f"",
+                    f"**Issues Overview:**",
+                    f"  Total site-monitor issues: {stats['total_site_monitor_issues']}",
+                    f"  Unassigned issues: {stats['unassigned']}",
+                    f"  Assigned issues: {stats['assigned']}",
+                    f"  Need clarification: {stats['needs_clarification']}",
+                ]
+                
+                if stats.get('needs_review', 0) > 0:
+                    stats_lines.append(f"  Need review: {stats['needs_review']}")
+                
+                stats_lines.extend([
+                    f"  Feature labeled: {stats['feature_labeled']}",
+                    f""
+                ])
+                
+                if stats['workflow_breakdown']:
+                    stats_lines.extend([
+                        f"**Workflow Breakdown:**"
+                    ])
+                    for workflow, count in sorted(stats['workflow_breakdown'].items()):
+                        stats_lines.append(f"  {workflow}: {count}")
+                    stats_lines.append("")
+                
+                if stats['label_distribution']:
+                    stats_lines.extend([
+                        f"**Label Distribution (Top 10):**"
+                    ])
+                    sorted_labels = sorted(stats['label_distribution'].items(), key=lambda x: x[1], reverse=True)
+                    for label, count in sorted_labels[:10]:
+                        stats_lines.append(f"  {label}: {count}")
+                
+                return CliResult(
+                    success=True,
+                    message="\n".join(stats_lines),
+                    data=stats
+                )
+            
+            else:
+                # Process issues for workflow assignment
+                reporter.start_operation(f"Processing workflow assignments (limit: {args.limit}, dry_run: {args.dry_run})")
+                
+                result = agent.process_issues_batch(
+                    limit=args.limit,
+                    dry_run=args.dry_run
+                )
+                
+                if 'error' in result:
+                    return CliResult(
+                        success=False,
+                        message=f"❌ Processing failed: {result['error']}",
+                        error_code=1
+                    )
+                
+                # Format results
+                total = result['total_issues']
+                processed = result['processed']
+                duration = result['duration_seconds']
+                stats = result['statistics']
+                
+                result_lines = [
+                    f"✅ **Workflow Assignment Complete**",
+                    f"🤖 **Agent Type:** {agent_type}",
+                    f"",
+                    f"**Summary:**",
+                    f"  Processed: {processed}/{total} issues in {duration:.1f}s",
+                    f""
+                ]
+                
+                # Add statistics breakdown
+                if stats:
+                    result_lines.extend([
+                        f"**Actions Taken:**"
+                    ])
+                    for action, count in stats.items():
+                        if count > 0:
+                            action_name = action.replace('_', ' ').title()
+                            result_lines.append(f"  {action_name}: {count}")
+                
+                # Add details if verbose
+                if args.verbose and result['results']:
+                    result_lines.extend([
+                        f"",
+                        f"**Issue Details:**"
+                    ])
+                    for issue_result in result['results']:
+                        # All results are now from AI agent (dictionary format)
+                        action = issue_result.get('action_taken', 'unknown').replace('_', ' ').title()
+                        result_lines.append(f"  Issue #{issue_result['issue_number']}: {action}")
+                        if issue_result.get('assigned_workflow'):
+                            result_lines.append(f"    Workflow: {issue_result['assigned_workflow']}")
+                        if issue_result.get('labels_added'):
+                            result_lines.append(f"    Labels added: {', '.join(issue_result['labels_added'])}")
+                        if issue_result.get('message'):
+                            result_lines.append(f"    Note: {issue_result['message']}")
+                        # Add AI-specific information
+                        if ai_enabled and 'ai_analysis' in issue_result:
+                            ai_analysis = issue_result['ai_analysis']
+                            if ai_analysis.get('summary'):
+                                result_lines.append(f"    AI Summary: {ai_analysis['summary']}")
+                            if ai_analysis.get('content_type'):
+                                result_lines.append(f"    Content Type: {ai_analysis['content_type']}")
+                            if ai_analysis.get('urgency_level'):
+                                result_lines.append(f"    Urgency: {ai_analysis['urgency_level']}")
+                
+                if args.dry_run:
+                    result_lines.insert(2, f"🧪 **DRY RUN** - No changes were made")
+                
+                success = processed > 0 or total == 0
+                return CliResult(
+                    success=success,
+                    message="\n".join(result_lines),
+                    data=result
+                )
+                
+        except Exception as e:
+            return CliResult(
+                success=False,
+                message=f"Workflow assignment failed: {str(e)}",
+                error_code=1
+            )
+    
+    # Execute the command safely
+    exit_code = safe_execute_cli_command(assign_workflows_command)
+    if exit_code != 0:
+        sys.exit(exit_code)
+
+
 def main():
     """Main entry point for the application."""
     load_dotenv()
@@ -583,6 +806,8 @@ def main():
             handle_cleanup_command(args, github_token)
         elif args.command == 'process-issues':
             handle_process_issues_command(args, github_token, repo_name)
+        elif args.command == 'assign-workflows':
+            handle_assign_workflows_command(args, github_token, repo_name)
         else:
             print(f"Unknown command: {args.command}", file=sys.stderr)
             parser.print_help()
