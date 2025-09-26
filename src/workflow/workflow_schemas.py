@@ -6,6 +6,7 @@ Defines and validates the schema for workflow YAML files
 import jsonschema
 from typing import Dict, List, Any, Tuple
 import logging
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -229,7 +230,6 @@ class WorkflowSchemaValidator:
         Returns:
             Tuple of (is_valid, error_messages)
         """
-        import re
         errors = []
         names = []
         

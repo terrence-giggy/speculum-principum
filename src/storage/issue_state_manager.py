@@ -8,7 +8,7 @@ processing history.
 
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Dict, Any, Optional
 from enum import Enum
@@ -260,8 +260,6 @@ class IssueStateManager:
         """
         if not self.enable_state_saving:
             return 0
-        
-        from datetime import timedelta
         
         cutoff_date = datetime.now(timezone.utc) - timedelta(days=days_old)
         removed_count = 0

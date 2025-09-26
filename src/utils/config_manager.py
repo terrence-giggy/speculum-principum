@@ -5,6 +5,7 @@ Handles loading and validation of YAML configuration files for site monitoring
 
 import yaml
 import os
+import re
 from typing import Dict, List, Optional, Any
 from jsonschema import validate, ValidationError
 from dataclasses import dataclass
@@ -450,8 +451,6 @@ def load_config_with_env_substitution(config_path: str) -> MonitorConfig:
     Returns:
         MonitorConfig object with environment variables substituted
     """
-    import re
-    
     if not os.path.exists(config_path):
         raise FileNotFoundError(f"Configuration file not found: {config_path}")
     

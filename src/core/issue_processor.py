@@ -19,6 +19,7 @@ import os
 import logging
 import time
 import functools
+import re
 from typing import Dict, List, Optional, Tuple, Any, Union
 from pathlib import Path
 from dataclasses import dataclass
@@ -207,7 +208,7 @@ class IssueProcessor:
         
         # Load configuration with error handling
         try:
-            self.config = ConfigManager.load_config(config_path)
+            self.config = ConfigManager.load_config_with_env_substitution(config_path)
             self.logger.info(f"Configuration loaded from {config_path}")
         except FileNotFoundError as e:
             error_msg = f"Configuration file not found: {config_path}"
@@ -943,7 +944,6 @@ This deliverable was generated using basic recovery mode due to processing const
         Returns:
             Slugified text
         """
-        import re
         # Convert to lowercase and replace spaces/special chars with hyphens
         slug = re.sub(r'[^\w\s-]', '', text.lower())
         slug = re.sub(r'[-\s]+', '-', slug)
@@ -1328,92 +1328,7 @@ class GitHubIntegratedIssueProcessor(IssueProcessor):
             f"*Automated processing by Issue Processor v1.0*"
         )
     
-    def process_batch(self, 
-                     issue_numbers: List[int],
-                     batch_size: int = 10,
-                     dry_run: bool = False,
-                     filters: Optional[Dict[str, Any]] = None) -> Tuple[Any, List[ProcessingResult]]:
-        """
-        Process multiple issues in batches.
-        
-        Args:
-            issue_numbers: List of issue numbers to process
-            batch_size: Maximum issues per batch
-            dry_run: If True, only analyze what would be processed
-            filters: Additional filtering criteria
-            
-        Returns:
-            Tuple of (batch metrics, list of processing results)
-        """
-        from .batch_processor import BatchProcessor, BatchConfig, BatchProgressReporter
-        
-        # Configure batch processing
-        batch_config = BatchConfig(
-            max_batch_size=batch_size,
-            max_concurrent_workers=min(3, batch_size),
-            include_assigned=filters.get('include_assigned', False) if filters else False
-        )
-        
-        # Create progress reporter
-        progress_reporter = BatchProgressReporter(verbose=True)
-        
-        # Create batch processor
-        batch_processor = BatchProcessor(
-            issue_processor=self,
-            github_client=self.github,
-            config=batch_config,
-            progress_reporter=progress_reporter
-        )
-        
-        # Process the batch
-        return batch_processor.process_issues(issue_numbers, dry_run=dry_run)
-    
-    def process_all_site_monitor_issues(self,
-                                       batch_size: int = 10,
-                                       dry_run: bool = False,
-                                       assignee_filter: Optional[str] = None,
-                                       additional_labels: Optional[List[str]] = None) -> Tuple[Any, List[ProcessingResult]]:
-        """
-        Process all open issues with site-monitor label.
-        
-        Args:
-            batch_size: Maximum issues per batch
-            dry_run: If True, only analyze what would be processed
-            assignee_filter: Filter by assignee ('none' for unassigned, username for specific user)
-            additional_labels: Additional labels that must be present
-            
-        Returns:
-            Tuple of (batch metrics, list of processing results)
-        """
-        from .batch_processor import BatchProcessor, BatchConfig, BatchProgressReporter
-        
-        # Build filters
-        filters = {}
-        if assignee_filter:
-            filters['assignee'] = assignee_filter
-        if additional_labels:
-            filters['additional_labels'] = additional_labels
-        
-        # Configure batch processing
-        batch_config = BatchConfig(
-            max_batch_size=batch_size,
-            max_concurrent_workers=min(3, batch_size),
-            include_assigned=assignee_filter is not None and assignee_filter != 'none'
-        )
-        
-        # Create progress reporter
-        progress_reporter = BatchProgressReporter(verbose=True)
-        
-        # Create batch processor
-        batch_processor = BatchProcessor(
-            issue_processor=self,
-            github_client=self.github,
-            config=batch_config,
-            progress_reporter=progress_reporter
-        )
-        
-        # Process all site-monitor issues
-        return batch_processor.process_site_monitor_issues(filters=filters, dry_run=dry_run)
+
     
     def get_processable_issues(self,
                               assignee_filter: Optional[str] = None,

@@ -1,0 +1,62 @@
+{
+  "23": {
+    "status": "needs_clarification",
+    "updated_at": "2025-09-24T20:45:34.617016",
+    "started_at": "2025-09-24T20:45:34.615886",
+    "title": "\ud83d\udcc4 Road to VR: Road to VR \u2013 Virtual Reality News",
+    "labels": [
+      "documentation",
+      "site-monitor",
+      "automated"
+    ],
+    "clarification_message": "\ud83e\udd16 **Workflow Selection Required for Issue #23**\n\nMultiple workflows could apply to this issue, or no specific workflow was found.\nCurrent labels: documentation, site-monitor, automated\n\nAvailable workflows:\n- `Technical Review`: Structured technical review and assessment workflow\n- `Research Analysis`: Comprehensive research and analysis workflow for detailed investigation\n\nPlease add additional labels to clarify which workflow should be used.\nYou can find workflow definitions in `docs/workflow/deliverables/`"
+  },
+  "24": {
+    "status": "needs_clarification",
+    "updated_at": "2025-09-24T20:45:34.961000",
+    "started_at": "2025-09-24T20:45:34.959964",
+    "title": "\ud83d\udcc4 Road to VR: News | Road to VR",
+    "labels": [
+      "documentation",
+      "site-monitor",
+      "automated"
+    ],
+    "clarification_message": "\ud83e\udd16 **Workflow Selection Required for Issue #24**\n\nMultiple workflows could apply to this issue, or no specific workflow was found.\nCurrent labels: documentation, site-monitor, automated\n\nAvailable workflows:\n- `Technical Review`: Structured technical review and assessment workflow\n- `Research Analysis`: Comprehensive research and analysis workflow for detailed investigation\n\nPlease add additional labels to clarify which workflow should be used.\nYou can find workflow definitions in `docs/workflow/deliverables/`"
+  },
+  "25": {
+    "status": "needs_clarification",
+    "updated_at": "2025-09-24T20:45:35.004494",
+    "started_at": "2025-09-24T20:45:35.003364",
+    "title": "\ud83d\udcc4 Road to VR: PC VR News & Reviews | Road to VR",
+    "labels": [
+      "documentation",
+      "site-monitor",
+      "automated"
+    ],
+    "clarification_message": "\ud83e\udd16 **Workflow Selection Required for Issue #25**\n\nMultiple workflows could apply to this issue, or no specific workflow was found.\nCurrent labels: documentation, site-monitor, automated\n\nAvailable workflows:\n- `Technical Review`: Structured technical review and assessment workflow\n- `Research Analysis`: Comprehensive research and analysis workflow for detailed investigation\n\nPlease add additional labels to clarify which workflow should be used.\nYou can find workflow definitions in `docs/workflow/deliverables/`"
+  },
+  "26": {
+    "status": "needs_clarification",
+    "updated_at": "2025-09-24T20:45:35.059179",
+    "started_at": "2025-09-24T20:45:35.058087",
+    "title": "\ud83d\udcc4 Road to VR: Meta Quest 3 News & Reviews | Road to VR",
+    "labels": [
+      "documentation",
+      "site-monitor",
+      "automated"
+    ],
+    "clarification_message": "\ud83e\udd16 **Workflow Selection Required for Issue #26**\n\nMultiple workflows could apply to this issue, or no specific workflow was found.\nCurrent labels: documentation, site-monitor, automated\n\nAvailable workflows:\n- `Technical Review`: Structured technical review and assessment workflow\n- `Research Analysis`: Comprehensive research and analysis workflow for detailed investigation\n\nPlease add additional labels to clarify which workflow should be used.\nYou can find workflow definitions in `docs/workflow/deliverables/`"
+  },
+  "27": {
+    "status": "needs_clarification",
+    "updated_at": "2025-09-24T20:45:35.410539",
+    "started_at": "2025-09-24T20:45:35.409428",
+    "title": "\ud83d\udcc4 Road to VR: XR Industry News | Road to VR",
+    "labels": [
+      "documentation",
+      "site-monitor",
+      "automated"
+    ],
+    "clarification_message": "\ud83e\udd16 **Workflow Selection Required for Issue #27**\n\nMultiple workflows could apply to this issue, or no specific workflow was found.\nCurrent labels: documentation, site-monitor, automated\n\nAvailable workflows:\n- `Technical Review`: Structured technical review and assessment workflow\n- `Research Analysis`: Comprehensive research and analysis workflow for detailed investigation\n\nPlease add additional labels to clarify which workflow should be used.\nYou can find workflow definitions in `docs/workflow/deliverables/`"
+  }
+}

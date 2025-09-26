@@ -7,10 +7,26 @@ Main entry point for the application with site monitoring capabilities
 import os
 import sys
 import argparse
+from datetime import datetime
 from dotenv import load_dotenv
 
 from src.clients.github_issue_creator import GitHubIssueCreator
+from src.core.batch_processor import BatchMetrics
+from src.core.issue_processor import (
+    GitHubIntegratedIssueProcessor, 
+    IssueProcessingStatus, 
+    ProcessingResult
+)
+from src.core.processing_orchestrator import ProcessingOrchestrator
 from src.core.site_monitor import create_monitor_service_from_config
+from src.utils.cli_helpers import (
+    ConfigValidator, 
+    ProgressReporter, 
+    IssueResultFormatter,
+    BatchProcessor, 
+    safe_execute_cli_command, 
+    CliResult
+)
 from src.utils.logging_config import setup_logging
 
 
@@ -289,11 +305,6 @@ def handle_cleanup_command(args, github_token: str) -> None:
 
 def handle_process_issues_command(args, github_token: str, repo_name: str) -> None:
     """Handle process-issues command."""
-    from src.core.issue_processor import GitHubIntegratedIssueProcessor, IssueProcessingStatus
-    from src.utils.cli_helpers import (
-        ConfigValidator, ProgressReporter, IssueResultFormatter,
-        BatchProcessor, safe_execute_cli_command, CliResult
-    )
     
     def process_issues_command() -> CliResult:
         # Validate configuration and environment
@@ -315,6 +326,9 @@ def handle_process_issues_command(args, github_token: str, repo_name: str) -> No
                 repository=repo_name,
                 config_path=args.config
             )
+            
+            # Create orchestrator for batch operations
+            orchestrator = ProcessingOrchestrator(processor)
             
             # Validate workflow directory from config
             config = processor.config
@@ -357,7 +371,7 @@ def handle_process_issues_command(args, github_token: str, repo_name: str) -> No
                 
                 # Process using batch processor
                 issue_numbers = [args.issue]
-                batch_metrics, batch_results = processor.process_batch(
+                batch_metrics, batch_results = orchestrator.process_batch(
                     issue_numbers=issue_numbers,
                     batch_size=1,
                     dry_run=args.dry_run
@@ -404,14 +418,13 @@ def handle_process_issues_command(args, github_token: str, repo_name: str) -> No
                     if args.issue:
                         # Process specific issue using batch processor for consistency
                         issue_numbers = [args.issue]
-                        batch_metrics, batch_results = processor.process_batch(
+                        batch_metrics, batch_results = orchestrator.process_batch(
                             issue_numbers=issue_numbers,
                             batch_size=1,
                             dry_run=args.dry_run
                         )
                     elif args.from_monitor:
                         # Use site monitor to find unprocessed issues
-                        from src.core.site_monitor import create_monitor_service_from_config
                         
                         reporter.show_info("🔍 Using site monitor to find unprocessed issues...")
                         
@@ -426,7 +439,6 @@ def handle_process_issues_command(args, github_token: str, repo_name: str) -> No
                         
                         if monitor_result['success']:
                             # Convert monitor results to expected format
-                            from src.core.issue_processor import ProcessingResult, IssueProcessingStatus
                             
                             batch_results = []
                             for result in monitor_result['processed_issues']:
@@ -440,8 +452,6 @@ def handle_process_issues_command(args, github_token: str, repo_name: str) -> No
                                 ))
                             
                             # Create metrics
-                            from src.core.batch_processor import BatchMetrics
-                            from datetime import datetime
                             
                             total_found = monitor_result['total_found']
                             successful = monitor_result['successful_processes']
@@ -462,7 +472,7 @@ def handle_process_issues_command(args, github_token: str, repo_name: str) -> No
                             )
                     else:
                         # Process all site-monitor issues using standard method
-                        batch_metrics, batch_results = processor.process_all_site_monitor_issues(
+                        batch_metrics, batch_results = orchestrator.process_all_site_monitor_issues(
                             batch_size=args.batch_size,
                             dry_run=args.dry_run,
                             assignee_filter=args.assignee_filter,

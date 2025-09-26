@@ -6,7 +6,7 @@ Handles search operations with date filtering, rate limiting, and result parsing
 import logging
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Any, Tuple
-from urllib.parse import urlparse, urljoin
+from urllib.parse import urlparse, urljoin, parse_qs, urlencode, urlunparse
 import time
 import re
 
@@ -348,7 +348,6 @@ def normalize_url(url: str) -> str:
         
         # Parse and filter query parameters
         if parsed.query:
-            from urllib.parse import parse_qs, urlencode
             params = parse_qs(parsed.query)
             filtered_params = {k: v for k, v in params.items() if k not in tracking_params}
             query = urlencode(filtered_params, doseq=True) if filtered_params else ''
@@ -357,7 +356,6 @@ def normalize_url(url: str) -> str:
         
         fragment = ''  # Ignore fragments for normalization
         
-        from urllib.parse import urlunparse
         normalized = urlunparse((scheme, netloc, path, '', query, fragment))
         
         return normalized

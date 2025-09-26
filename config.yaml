@@ -1,7 +1,7 @@
 sites:
   - url: https://www.roadtovr.com
     name: Road to VR
-    max_results: 2
+    max_results: 5
 github:
   repository: ${GITHUB_REPOSITORY}
   issue_labels:

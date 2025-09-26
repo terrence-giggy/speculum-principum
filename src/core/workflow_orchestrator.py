@@ -6,6 +6,7 @@ including workflow discovery, execution management, and deliverable coordination
 """
 
 import logging
+import re
 from typing import Dict, Any, Optional, Tuple, List
 from datetime import datetime
 from pathlib import Path
@@ -347,7 +348,6 @@ class WorkflowOrchestrator:
 
     def _slugify(self, text: str) -> str:
         """Convert text to a URL-safe slug."""
-        import re
         
         # Convert to lowercase and replace spaces/special chars with hyphens
         slug = re.sub(r'[^\w\s-]', '', text.lower())
