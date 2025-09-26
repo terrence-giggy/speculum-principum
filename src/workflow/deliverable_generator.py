@@ -317,12 +317,18 @@ class DeliverableGenerator:
     
     def _generate_basic_content(self, context: Dict[str, Any]) -> str:
         """Generate basic deliverable content."""
-        issue = context["issue"]
-        deliverable = context["deliverable"]
-        workflow = context["workflow"]
-        timestamp = context["timestamp"]
-        
-        content = f"""# {deliverable.title}
+        # Try external template first
+        try:
+            return self.template_engine.render_template("deliverables/basic.md", context)
+        except FileNotFoundError:
+            # Fall back to inline template for backward compatibility
+            issue = context["issue"]
+            deliverable = context["deliverable"]
+            workflow = context["workflow"]
+            timestamp = context["timestamp"]
+            processing_id = context.get('processing_id', 'unknown')
+            
+            content = f"""# {deliverable.title}
 
 **Issue**: #{issue.number} - {issue.title}
 **Generated**: {timestamp.strftime('%Y-%m-%d %H:%M:%S UTC')}
@@ -334,10 +340,12 @@ class DeliverableGenerator:
 
 ## Issue Context
 
-    **Labels**: {', '.join(issue.labels) if issue.labels else 'None'}
-    **Author**: {getattr(issue, 'author', 'Unknown')}
-    **Created**: {issue.created_at.strftime('%Y-%m-%d %H:%M:%S UTC')}
-    **URL**: {issue.url}### Issue Description
+**Labels**: {', '.join(issue.labels) if issue.labels else 'None'}
+**Author**: {getattr(issue, 'author', 'Unknown')}
+**Created**: {issue.created_at.strftime('%Y-%m-%d %H:%M:%S UTC')}
+**URL**: {issue.url}
+
+### Issue Description
 
 {issue.body}
 
@@ -360,9 +368,9 @@ Further content development would be handled by AI integration in future version
 
 *Generated automatically by Deliverable Generator*
 *Workflow: {workflow.name}*
-*Processing ID: {context.get('processing_id', 'unknown')}*
+*Processing ID: {processing_id}*
 """
-        return content
+            return content
     
     def _generate_research_overview(self, context: Dict[str, Any]) -> str:
         """Generate research overview deliverable."""

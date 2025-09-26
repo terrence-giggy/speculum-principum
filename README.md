@@ -50,15 +50,13 @@ speculum-principum/
 │   │   ├── issue_processor.py       # Automated issue processing engine
 │   │   ├── batch_processor.py       # Batch processing for multiple issues
 │   │   ├── deduplication.py         # URL/content deduplication system
-│   │   └── workflow_orchestrator.py # Workflow execution coordination
+│   │   └── processing_orchestrator.py # High-level processing coordination
 │   ├── storage/
-│   │   ├── git_manager.py           # Git operations and version control
-│   │   └── issue_state_manager.py   # Issue processing state management
+│   │   └── git_manager.py           # Git operations and version control
 │   ├── utils/
 │   │   ├── config_manager.py        # Configuration loading and validation
 │   │   ├── cli_helpers.py           # Command-line interface utilities
-│   │   ├── logging_config.py        # Logging configuration
-│   │   └── error_handler.py         # Error handling utilities
+│   │   └── logging_config.py        # Logging configuration
 │   └── workflow/
 │       ├── workflow_matcher.py      # Workflow discovery and matching logic
 │       ├── deliverable_generator.py # Document generation system
