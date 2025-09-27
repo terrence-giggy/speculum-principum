@@ -214,23 +214,8 @@ jobs:
             # Push the branch
             git push origin "${BRANCH_NAME}"
             
-            # Create pull request using GitHub CLI
-            cat > pr_body.txt << EOF
-## Automated Issue Processing
-
-This PR contains automatically generated deliverables for issue #${ISSUE_NUMBER}.
-
-### Changes Made
-- Generated workflow-based documents
-- Applied template processing
-- Created structured deliverables
-
-### Issue Reference
-Closes #${ISSUE_NUMBER}
-
----
-*This PR was created automatically by the issue processing workflow.*
-EOF
+            # Create pull request using template
+            envsubst < .github/templates/pr-body-issue-processing.md > pr_body.txt
             
             gh pr create \
               --title "Automated processing for issue #${ISSUE_NUMBER}" \
