@@ -201,7 +201,7 @@ class TemplateEngine:
         Returns:
             List of template names
         """
-        templates = []
+        templates: list[str] = []
         
         if not self.templates_dir.exists():
             return templates
@@ -224,10 +224,12 @@ class TemplateEngine:
         Returns:
             Validation results with errors and warnings
         """
+        errors_list: list[str] = []
+        warnings_list: list[str] = []
         results = {
             "valid": True,
-            "errors": [],
-            "warnings": [],
+            "errors": errors_list,
+            "warnings": warnings_list,
             "metadata": None
         }
         
@@ -239,18 +241,18 @@ class TemplateEngine:
             
             # Check for syntax errors in template directives
             errors = self._validate_template_syntax(content)
-            results["errors"].extend(errors)
+            errors_list.extend(errors)
             
             # Check for undefined variables
             warnings = self._check_undefined_variables(content, metadata)
-            results["warnings"].extend(warnings)
+            warnings_list.extend(warnings)
             
-            if results["errors"]:
+            if errors_list:
                 results["valid"] = False
                 
         except Exception as e:
             results["valid"] = False
-            results["errors"].append(f"Failed to load template: {e}")
+            errors_list.append(f"Failed to load template: {e}")
         
         return results
     
