@@ -4,10 +4,7 @@ permissions:
   issues: write
   pull-requests: read
 
-# Trigger on issue events and manual dispatch for testing
 on:
-  issues:
-    types: [labeled, assigned]
   workflow_dispatch:
     inputs:
       issue_number:
@@ -129,11 +126,11 @@ jobs:
     name: Process Issues
     runs-on: ubuntu-latest
     needs: check-issues
-    if: needs.check-issues.outputs.should_process == 'true'
+    if: needs.check-issues.outputs.should_process == 'true' && needs.check-issues.outputs.issues_to_process != '' && needs.check-issues.outputs.issues_to_process != '[]'
     
     strategy:
       matrix:
-        issue: ${{ fromJson(needs.check-issues.outputs.issues_to_process) }}
+        issue: ${{ fromJson(needs.check-issues.outputs.issues_to_process || '[]') }}
       fail-fast: false
       max-parallel: 3
     
