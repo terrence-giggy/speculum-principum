@@ -48,8 +48,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
-          # Python-based issue checking (same logic as main workflow)
-          python3 << 'EOF'
+          # Python script to find issues and output JSON
+          ISSUES_JSON=$(python3 << 'EOF'
           import os
           import json
           import sys
@@ -99,26 +99,32 @@ jobs:
                           'labels': [label.name for label in issue.labels]
                       })
               
-              # Always set outputs, even if empty
+              # Output JSON to stdout for shell capture
               issues_json = json.dumps(issues_to_process) if issues_to_process else "[]"
-              should_process = "true" if issues_to_process else "false"
+              print(issues_json)
               
-              print(f"DEBUG: Setting outputs - issues={issues_json}, should_process={should_process}")
-              
-              with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
-                  f.write(f"issues={issues_json}\n")
-                  f.write(f"should_process={should_process}\n")
-              
+              # Also print debug info to stderr
+              print(f"DEBUG: Found {len(issues_to_process)} issues", file=sys.stderr)
               if issues_to_process:
-                  print(f"Found {len(issues_to_process)} issues to process:")
                   for issue in issues_to_process:
-                      print(f"  - #{issue['number']}: {issue['title']}")
-              else:
-                  print("No issues found to process")
+                      print(f"  - #{issue['number']}: {issue['title']}", file=sys.stderr)
           
           if __name__ == '__main__':
               main()
           EOF
+          )
+          
+          # Set outputs using shell commands
+          echo "issues=${ISSUES_JSON}" >> $GITHUB_OUTPUT
+          
+          # Check if we should process (non-empty array)
+          if [ "${ISSUES_JSON}" = "[]" ]; then
+            echo "should_process=false" >> $GITHUB_OUTPUT
+            echo "No issues found to process"
+          else
+            echo "should_process=true" >> $GITHUB_OUTPUT
+            echo "Found issues to process: ${ISSUES_JSON}"
+          fi
 
   process-issues:
     name: Process Issues
@@ -128,7 +134,7 @@ jobs:
     
     strategy:
       matrix:
-        issue: ${{ fromJson(needs.check-issues.outputs.issues) }}
+        issue: ${{ fromJson(needs.check-issues.outputs.issues || '[]') }}
       fail-fast: false
       max-parallel: 3
     
