@@ -1,4 +1,4 @@
-name: Operations - Setup Monitoring
+name: Operations -X Setup Monitoring
 
 on:
   workflow_dispatch:
