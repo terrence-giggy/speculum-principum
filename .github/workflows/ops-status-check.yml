@@ -1,4 +1,4 @@
-name: Status Check
+name: Operations - Status Check
 
 on:
   workflow_dispatch:

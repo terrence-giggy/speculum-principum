@@ -159,7 +159,7 @@
 - [ ] Step 16: Create GitHub Actions workflow
   - **Task**: Set up automated issue processing via GitHub Actions
   - **Files**:
-    - `.github/workflows/process-issues.yml`: GitHub Actions workflow
+    - `.github/workflows/ops-issue-processing.yml`: GitHub Actions workflow
     - `.github/workflows/README.md`: Workflow documentation
   - **Step Dependencies**: Step 13
   - **User Instructions**: Enable GitHub Actions and configure secrets

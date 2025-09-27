@@ -1,4 +1,4 @@
-name: Daily Site Monitoring
+name: Operations - Site Monitoring
 
 on:
   # schedule:

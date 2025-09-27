@@ -1,4 +1,4 @@
-name: Setup Site Monitoring
+name: Operations - Setup Monitoring
 
 on:
   workflow_dispatch:
@@ -98,7 +98,7 @@ jobs:
 
           ## 🔗 Useful Links
 
-          - [Monitoring Workflow](${{ github.server_url }}/${{ github.repository }}/actions/workflows/site-monitoring.yml)
+          - [Monitoring Workflow](${{ github.server_url }}/${{ github.repository }}/actions/workflows/ops-site-monitoring.yml)
           - [Configuration Guide](./README.md)
           - [Setup Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 

@@ -1,4 +1,4 @@
-name: Assign Workflows to Site Monitor Issues
+name: Operations - Workflow Assignment
 
 permissions:
   contents: read

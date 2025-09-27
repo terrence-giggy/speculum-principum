@@ -1,4 +1,4 @@
-name: Process Issues with Automated Workflows
+name: Operations - Issue Processing
 permissions:
   contents: read
   issues: write
@@ -251,13 +251,19 @@ jobs:
         env:
           CHECK_RESULT: ${{ needs.check-issues.result }}
           PROCESS_RESULT: ${{ needs.process-issues.result }}
-          ISSUES_COUNT: ${{ needs.check-issues.outputs.issues_to_process && fromJson(needs.check-issues.outputs.issues_to_process) && length(fromJson(needs.check-issues.outputs.issues_to_process)) || 0 }}
+          ISSUES_JSON: ${{ needs.check-issues.outputs.issues_to_process }}
         run: |
           echo "## Issue Processing Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           if [ "${CHECK_RESULT}" = "success" ]; then
             echo "✅ Issue discovery completed successfully" >> $GITHUB_STEP_SUMMARY
+            # Calculate issues count in shell
+            if [ -n "${ISSUES_JSON}" ] && [ "${ISSUES_JSON}" != "null" ]; then
+              ISSUES_COUNT=$(echo "${ISSUES_JSON}" | jq '. | length' 2>/dev/null || echo "0")
+            else
+              ISSUES_COUNT=0
+            fi
             echo "📊 Found ${ISSUES_COUNT} issues to process" >> $GITHUB_STEP_SUMMARY
           else
             echo "❌ Issue discovery failed" >> $GITHUB_STEP_SUMMARY

@@ -4,17 +4,43 @@ This directory contains GitHub Actions workflows for automating various operatio
 
 ## Overview
 
-The project includes several automated workflows:
+The workflows are organized into two main categories:
 
-- **`assign-workflows.yml`** - Assign workflows to unassigned site-monitor issues
-- **`process-issues.yml`** - Automated issue processing with workflow-based deliverable generation
-- **`site-monitoring.yml`** - Scheduled site monitoring operations
-- **`test.yml`** - Continuous integration testing
-- **`setup-monitoring.yml`** - Initial repository setup
-- **`scheduled-operations.yml`** - Periodic maintenance tasks
-- **`weekly-cleanup.yml`** - Weekly cleanup operations
+### Development Workflows
+- **`dev-ci.yml`** - Development CI/CD Pipeline (testing, linting, security scanning)
 
-## Workflow Assignment (`assign-workflows.yml`)
+### Operations Workflows
+
+#### Site Monitoring & Issue Processing
+- **`ops-site-monitoring.yml`** - Scheduled site monitoring operations
+- **`ops-workflow-assignment.yml`** - Assign workflows to unassigned site-monitor issues
+- **`ops-issue-processing.yml`** - Automated issue processing with workflow-based deliverable generation
+
+#### Maintenance & Utilities
+- **`ops-daily-operations.yml`** - Daily maintenance tasks
+- **`ops-weekly-cleanup.yml`** - Weekly cleanup operations
+- **`ops-status-check.yml`** - System status monitoring
+- **`ops-setup-monitoring.yml`** - Initial repository setup
+
+## Development CI/CD Pipeline (`dev-ci.yml`)
+
+### Purpose
+
+Provides continuous integration and quality assurance for the codebase through:
+
+1. **Multi-version Testing**: Tests across Python 3.9, 3.10, 3.11, and 3.12
+2. **Code Quality**: Linting with flake8 and formatting checks
+3. **Test Coverage**: Comprehensive test suite with coverage reporting
+4. **Integration Testing**: End-to-end functionality validation
+5. **Security Scanning**: Vulnerability detection with safety and bandit
+6. **CLI Testing**: Command-line interface functionality validation
+
+### Triggers
+
+- **Push/Pull Request**: On main and develop branches
+- **Manual Dispatch**: For on-demand testing
+
+## Operations - Workflow Assignment (`ops-workflow-assignment.yml`)
 
 ### Purpose
 
@@ -41,18 +67,81 @@ Automatically assigns appropriate workflows to unassigned `site-monitor` issues 
 | `statistics_only` | boolean | false | Show stats without processing |
 
 ### Jobs
+### Safety Features
+
+- **Dry-run by default** for manual execution
+- **Statistics tracking** for assignment success rates
+- **Conditional execution** based on issue triggers
+
+### Jobs
 
 1. **check-assignment-needed**: Determines if unassigned site-monitor issues exist
 2. **assign-workflows**: Processes issues based on trigger and parameters
 
-### Safety Features
+### Operations - Site Monitoring (`ops-site-monitoring.yml`)
 
-- **Dry-run by default** for manual execution
+### Purpose
+
+Performs scheduled monitoring of configured websites and creates issues for new content:
+
+1. **Content Discovery**: Uses Google Search API to find new content
+2. **Deduplication**: Prevents duplicate issues using content hashing
+3. **Issue Creation**: Creates GitHub issues for monitoring results
+4. **Rate Limiting**: Respects API limits and quotas
+
+### Triggers
+
+- **Scheduled**: Daily monitoring (configurable schedule)
+- **Manual Dispatch**: For on-demand monitoring with safety options
+
+## Operations - Issue Processing (`ops-issue-processing.yml`)
+
+### Purpose
+
+Processes site-monitor issues through automated workflows to generate deliverables:
+
+1. **Workflow Execution**: Runs assigned workflows on labeled issues
+2. **Document Generation**: Creates deliverables using template system
+3. **Git Integration**: Commits results to dedicated branches
+4. **Progress Tracking**: Updates issues with processing status
+
+### Triggers
+
+- **Issue Events**: When issues are labeled or assigned
+- **Manual Dispatch**: For testing and batch processing
+
+## Operations - Daily Maintenance (`ops-daily-operations.yml`)
+
+### Purpose
+
+Performs daily maintenance tasks including system health checks and routine operations.
+
+## Operations - Weekly Cleanup (`ops-weekly-cleanup.yml`)
+
+### Purpose
+
+Performs weekly cleanup operations to maintain repository health and manage storage.
+
+## Usage Guidelines
+
+### Development Workflows
+- `dev-ci.yml` runs automatically on code changes and can be triggered manually for testing
+
+### Operations Workflows
+- Site monitoring and issue processing workflows are designed to run on schedules
+- All operations workflows support manual dispatch with safety options (dry-run modes)
+- Use the setup workflow (`ops-setup-monitoring.yml`) for initial repository configuration
+- Status check workflow (`ops-status-check.yml`) provides system health monitoring
+
+### Safety Considerations
+- Most workflows default to dry-run mode when triggered manually
+- Monitor API quotas and rate limits for external services
+- Review logs and artifacts for troubleshooting and verification
 - **Conservative limits** for scheduled runs (5 issues max)
 - **Statistics reporting** before and after processing
 - **No production changes** on scheduled runs without manual override
 
-## Issue Processing Workflow (`process-issues.yml`)
+## Operations - Issue Processing (`ops-issue-processing.yml`)
 
 ### Purpose
 

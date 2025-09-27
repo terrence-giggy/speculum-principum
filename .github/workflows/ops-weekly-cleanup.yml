@@ -1,4 +1,4 @@
-name: Weekly Cleanup
+name: Operations - Weekly Cleanup
 
 on:
   # schedule:
