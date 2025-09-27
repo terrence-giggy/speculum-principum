@@ -205,10 +205,10 @@ jobs:
             # Add and commit changes
             git add .
             git commit -m "docs: automated processing for issue #${ISSUE_NUMBER}
-            
-            - Generated deliverables for issue #${ISSUE_NUMBER}
-            - Applied workflow-based document generation
-            - Automated via GitHub Actions"
+
+- Generated deliverables for issue #${ISSUE_NUMBER}
+- Applied workflow-based document generation
+- Automated via GitHub Actions"
             
             # Push the branch
             git push origin "${BRANCH_NAME}"
