@@ -258,6 +258,11 @@ python main.py process-issues --issue 123 --dry-run
 ### Available Commands
 
 ```bash
+# Workflow assignment
+python main.py assign-workflows --dry-run              # Assign workflows to issues (safe)
+python main.py assign-workflows --limit 10             # Process up to 10 issues
+python main.py assign-workflows --statistics           # Show assignment statistics
+
 # Issue processing
 python main.py process-issues --issue 123              # Process specific issue
 python main.py process-issues --batch                  # Process all eligible issues
@@ -382,6 +387,11 @@ python main.py setup --config config.yaml
 python main.py status --config config.yaml
 python main.py cleanup --config config.yaml --days-old 7 --dry-run
 
+# Workflow assignment commands
+python main.py assign-workflows --config config.yaml --dry-run --verbose    # Safe test run
+python main.py assign-workflows --config config.yaml --limit 10             # Assign to 10 issues
+python main.py assign-workflows --config config.yaml --statistics           # Show statistics
+
 # Issue processing commands
 python main.py process-issues --issue 123                 # Process specific issue
 python main.py process-issues --batch                     # Process all eligible issues
@@ -393,6 +403,26 @@ python main.py workflow-stats                             # Show workflow statis
 # Legacy command
 python main.py create-issue --title "Test Issue" --body "Test content"
 ```
+
+### GitHub Workflows & VS Code Integration
+
+The repository includes automated GitHub workflows and VS Code integration:
+
+#### GitHub Workflows
+- **assign-workflows.yml**: Automatically assigns workflows to unassigned site-monitor issues
+  - Triggers on new issues, manual dispatch, or every 2 hours
+  - Includes safety checks and statistics reporting
+  - Supports dry-run mode for testing
+
+#### VS Code Tasks (F1 → "Tasks: Run Task")
+- **Assign Workflows (Dry Run)**: Safe testing with 10 issue limit
+- **Assign Workflows (Execute)**: Production run with 20 issue limit  
+- **Show Workflow Assignment Statistics**: Display current GitHub statistics
+
+#### VS Code Debug Configurations (F5)
+- **Assign Workflows (Dry Run)**: Debug workflow assignment safely
+- **Assign Workflows (Execute)**: Debug production workflow assignment
+- **Show Workflow Assignment Statistics**: Debug statistics gathering
 
 ### Running Tests
 

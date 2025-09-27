@@ -6,12 +6,51 @@ This directory contains GitHub Actions workflows for automating various operatio
 
 The project includes several automated workflows:
 
+- **`assign-workflows.yml`** - Assign workflows to unassigned site-monitor issues
 - **`process-issues.yml`** - Automated issue processing with workflow-based deliverable generation
 - **`site-monitoring.yml`** - Scheduled site monitoring operations
 - **`test.yml`** - Continuous integration testing
 - **`setup-monitoring.yml`** - Initial repository setup
 - **`scheduled-operations.yml`** - Periodic maintenance tasks
 - **`weekly-cleanup.yml`** - Weekly cleanup operations
+
+## Workflow Assignment (`assign-workflows.yml`)
+
+### Purpose
+
+Automatically assigns appropriate workflows to unassigned `site-monitor` issues by:
+
+1. **Analyzing Labels**: Examines issue labels to determine suitable workflows
+2. **High-Confidence Assignment**: Directly assigns workflows when confidence is high
+3. **Clarification Requests**: Adds "needs clarification" label when no workflows match
+4. **Statistics Tracking**: Provides comprehensive assignment metrics
+
+### Triggers
+
+- **Issue Events**: When new issues are opened or labeled (especially `site-monitor`)
+- **Scheduled**: Every 2 hours to catch unassigned issues
+- **Manual Dispatch**: With configurable parameters for testing and operations
+
+### Manual Dispatch Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `limit` | number | 10 | Maximum issues to process |
+| `dry_run` | boolean | true | Preview mode without changes |
+| `verbose` | boolean | true | Detailed progress output |
+| `statistics_only` | boolean | false | Show stats without processing |
+
+### Jobs
+
+1. **check-assignment-needed**: Determines if unassigned site-monitor issues exist
+2. **assign-workflows**: Processes issues based on trigger and parameters
+
+### Safety Features
+
+- **Dry-run by default** for manual execution
+- **Conservative limits** for scheduled runs (5 issues max)
+- **Statistics reporting** before and after processing
+- **No production changes** on scheduled runs without manual override
 
 ## Issue Processing Workflow (`process-issues.yml`)
 
