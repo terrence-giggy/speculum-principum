@@ -36,7 +36,7 @@ A comprehensive Python application that monitors websites for updates using Goog
 speculum-principum/
 ├── .github/
 │   └── workflows/
-│       ├── site-monitoring.yml      # Daily monitoring workflow
+│       ├── ops-site-monitoring.yml      # Daily monitoring workflow
 │       ├── setup-monitoring.yml     # Repository setup workflow
 │       └── weekly-cleanup.yml       # Weekly data cleanup workflow
 ├── .vscode/                         # VS Code debugging configurations and tasks
@@ -407,7 +407,7 @@ python main.py create-issue --title "Test Issue" --body "Test content"
 The repository includes automated GitHub workflows and VS Code integration:
 
 #### GitHub Workflows
-- **assign-workflows.yml**: Automatically assigns workflows to unassigned site-monitor issues
+- **ops-workflow-assignment.yml**: Automatically assigns workflows to unassigned site-monitor issues
   - Triggers on new issues, manual dispatch, or every 2 hours
   - Includes safety checks and statistics reporting
   - Supports dry-run mode for testing
@@ -483,7 +483,7 @@ To start debugging:
 
 ## 🔄 Workflows
 
-### Daily Site Monitoring (`site-monitoring.yml`)
+### Daily Site Monitoring (`ops-site-monitoring.yml`)
 
 - **Schedule**: Daily at 9:00 AM UTC
 - **Trigger**: Automatic (cron) or manual
@@ -939,7 +939,7 @@ tests/
 
 The project uses GitHub Actions for automated testing:
 
-- **test.yml**: Runs full test suite on multiple Python versions
+- **dev-ci.yml**: Runs full test suite on multiple Python versions
 - Tests run on every push and pull request
 - Includes linting, security scanning, and type checking
 - Coverage reports are uploaded to Codecov
