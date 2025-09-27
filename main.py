@@ -196,6 +196,11 @@ def setup_process_issues_parser(subparsers) -> None:
         action='store_true', 
         help='Use site monitor to find and process unprocessed issues'
     )
+    process_parser.add_argument(
+        '--find-issues-only', 
+        action='store_true', 
+        help='Find and output site-monitor issues without processing (for CI/CD)'
+    )
 
 
 def setup_assign_workflows_parser(subparsers) -> None:
@@ -383,6 +388,68 @@ def handle_process_issues_command(args, github_token: str, repo_name: str) -> No
                 reporter.show_info(f"Using workflow directory: {workflow_dir}")
                 if workflow_result.data:
                     reporter.show_info(f"Found {workflow_result.data['workflow_count']} workflow(s)")
+            
+            
+            # Handle find-issues-only mode (for CI/CD integration)
+            if args.find_issues_only:
+                reporter.start_operation("Finding site-monitor issues")
+                
+                try:
+                    from src.core.batch_processor import BatchProcessor
+                    
+                    # Create a batch processor just for finding issues
+                    batch_processor = BatchProcessor(processor, processor.github, config=None)
+                    
+                    # Build filters
+                    filters = {}
+                    if args.assignee_filter:
+                        filters['assignee'] = args.assignee_filter
+                    if args.label_filter:
+                        filters['additional_labels'] = args.label_filter
+                    
+                    # Find issues
+                    issue_numbers = batch_processor._find_site_monitor_issues(filters)
+                    
+                    if not issue_numbers:
+                        reporter.complete_operation(True)
+                        return CliResult(
+                            success=True,
+                            message="[]",  # Empty JSON array for no issues
+                            data={'issues': [], 'count': 0}
+                        )
+                    
+                    # Get detailed issue information
+                    issues_data = []
+                    for issue_number in issue_numbers[:args.batch_size]:
+                        try:
+                            issue_data = processor.github.get_issue_data(issue_number)
+                            issues_data.append({
+                                'number': issue_number,
+                                'title': issue_data.get('title', ''),
+                                'labels': issue_data.get('labels', [])
+                            })
+                        except Exception as e:
+                            reporter.show_info(f"Warning: Could not get data for issue #{issue_number}: {e}")
+                    
+                    reporter.complete_operation(True)
+                    
+                    # Output JSON for CI/CD consumption
+                    import json
+                    issues_json = json.dumps(issues_data)
+                    
+                    return CliResult(
+                        success=True,
+                        message=issues_json,
+                        data={'issues': issues_data, 'count': len(issues_data)}
+                    )
+                    
+                except Exception as e:
+                    reporter.complete_operation(False)
+                    return CliResult(
+                        success=False,
+                        message=f"❌ Failed to find issues: {str(e)}",
+                        error_code=1
+                    )
             
             # Process issues (single or batch)
             if args.issue:
