@@ -1,4 +1,4 @@
-name: Operations -3 Issue Processing (PR Mode)
+name: Operations - Issue Processing (PR Mode)
 permissions:
   contents: write  # Required for creating branches and PRs
   issues: write
@@ -105,14 +105,16 @@ jobs:
                       })
               
               if issues_to_process:
-                  print(f"::set-output name=issues::{json.dumps(issues_to_process)}")
-                  print(f"::set-output name=should_process::true")
+                  with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+                      f.write(f"issues={json.dumps(issues_to_process)}\n")
+                      f.write(f"should_process=true\n")
                   print(f"Found {len(issues_to_process)} issues to process:")
                   for issue in issues_to_process:
                       print(f"  - #{issue['number']}: {issue['title']}")
               else:
-                  print(f"::set-output name=issues::[]")
-                  print(f"::set-output name=should_process::false")
+                  with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+                      f.write(f"issues=[]\n")
+                      f.write(f"should_process=false\n")
                   print("No issues found to process")
           
           if __name__ == '__main__':
@@ -127,7 +129,7 @@ jobs:
     
     strategy:
       matrix:
-        issue: ${{ fromJson(needs.check-issues.outputs.issues_to_process) }}
+        issue: ${{ fromJson(needs.check-issues.outputs.issues) }}
       fail-fast: false
       max-parallel: 3
     
@@ -214,9 +216,7 @@ jobs:
             git push origin "${BRANCH_NAME}"
             
             # Create pull request using GitHub CLI
-            gh pr create \
-              --title "Automated processing for issue #${ISSUE_NUMBER}" \
-              --body "## Automated Issue Processing
+            PR_BODY="## Automated Issue Processing
 
 This PR contains automatically generated deliverables for issue #${ISSUE_NUMBER}.
 
@@ -229,7 +229,11 @@ This PR contains automatically generated deliverables for issue #${ISSUE_NUMBER}
 Closes #${ISSUE_NUMBER}
 
 ---
-*This PR was created automatically by the issue processing workflow.*" \
+*This PR was created automatically by the issue processing workflow.*"
+            
+            gh pr create \
+              --title "Automated processing for issue #${ISSUE_NUMBER}" \
+              --body "${PR_BODY}" \
               --head "${BRANCH_NAME}" \
               --base main \
               --assignee "@me"
