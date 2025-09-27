@@ -35,5 +35,21 @@ agent:
     min_word_count: 100
     require_citations: false
     spell_check: false
+
+# AI configuration for workflow assignment
+ai:
+  enabled: true  # AI is now the default workflow assignment method
+  model: "gpt-4o"  # GitHub Models options: gpt-4o, llama-3.2, etc.
+  confidence_thresholds:
+    auto_assign: 0.8   # Confidence threshold for automatic assignment
+    request_review: 0.6  # Confidence threshold for requesting human review
+  max_tokens: 500
+  temperature: 0.3  # Lower = more consistent, higher = more creative
+  # Historical data storage (future enhancement)
+  history:
+    storage_type: "gist"  # or "repo_file" 
+    # gist_id: ${AI_HISTORY_GIST_ID}  # Uncomment when using gist storage
+    file_path: ".github/ai_assignment_history.json"
+
 storage_path: processed_urls.json
 log_level: INFO

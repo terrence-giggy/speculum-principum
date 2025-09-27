@@ -77,6 +77,39 @@ class AgentValidationConfig:
 
 
 @dataclass
+class AIHistoryConfig:
+    """AI history storage configuration"""
+    storage_type: str = "gist"
+    gist_id: Optional[str] = None
+    file_path: str = ".github/ai_assignment_history.json"
+
+
+@dataclass
+class AIConfidenceThresholds:
+    """AI confidence thresholds for workflow assignment"""
+    auto_assign: float = 0.8
+    request_review: float = 0.6
+
+
+@dataclass 
+class AIConfig:
+    """AI configuration for workflow assignment"""
+    enabled: bool = False
+    model: str = "gpt-4o"
+    confidence_thresholds: Optional[AIConfidenceThresholds] = None
+    max_tokens: int = 500
+    temperature: float = 0.3
+    history: Optional[AIHistoryConfig] = None
+    
+    def __post_init__(self):
+        """Initialize default values after dataclass creation"""
+        if self.confidence_thresholds is None:
+            self.confidence_thresholds = AIConfidenceThresholds()
+        if self.history is None:
+            self.history = AIHistoryConfig()
+
+
+@dataclass
 class AgentConfig:
     """Agent configuration for automated issue processing"""
     username: str
@@ -137,6 +170,7 @@ class MonitorConfig:
     github: GitHubConfig
     search: SearchConfig
     agent: Optional[AgentConfig] = None
+    ai: Optional[AIConfig] = None
     storage_path: str = "processed_urls.json"
     log_level: str = "INFO"
     git: Optional[GitConfig] = None
@@ -288,6 +322,33 @@ class ConfigLoader:
                     "output_dir": {"type": "string"}
                 },
                 "additionalProperties": False
+            },
+            "ai": {
+                "type": "object",
+                "properties": {
+                    "enabled": {"type": "boolean"},
+                    "model": {"type": "string"},
+                    "confidence_thresholds": {
+                        "type": "object",
+                        "properties": {
+                            "auto_assign": {"type": "number", "minimum": 0, "maximum": 1},
+                            "request_review": {"type": "number", "minimum": 0, "maximum": 1}
+                        },
+                        "additionalProperties": False
+                    },
+                    "max_tokens": {"type": "integer", "minimum": 1},
+                    "temperature": {"type": "number", "minimum": 0, "maximum": 2},
+                    "history": {
+                        "type": "object",
+                        "properties": {
+                            "storage_type": {"type": "string", "enum": ["gist", "repo_file"]},
+                            "gist_id": {"type": "string"},
+                            "file_path": {"type": "string"}
+                        },
+                        "additionalProperties": False
+                    }
+                },
+                "additionalProperties": False
             }
         },
         "additionalProperties": False
@@ -412,11 +473,43 @@ class ConfigLoader:
                 validation=validation
             )
         
+        # Parse AI configuration
+        ai = None
+        if 'ai' in config_data:
+            ai_data = config_data['ai']
+            
+            confidence_thresholds = None
+            if 'confidence_thresholds' in ai_data:
+                threshold_data = ai_data['confidence_thresholds']
+                confidence_thresholds = AIConfidenceThresholds(
+                    auto_assign=threshold_data.get('auto_assign', 0.8),
+                    request_review=threshold_data.get('request_review', 0.6)
+                )
+            
+            history = None
+            if 'history' in ai_data:
+                history_data = ai_data['history']
+                history = AIHistoryConfig(
+                    storage_type=history_data.get('storage_type', 'gist'),
+                    gist_id=history_data.get('gist_id'),
+                    file_path=history_data.get('file_path', '.github/ai_assignment_history.json')
+                )
+            
+            ai = AIConfig(
+                enabled=ai_data.get('enabled', False),
+                model=ai_data.get('model', 'gpt-4o'),
+                confidence_thresholds=confidence_thresholds,
+                max_tokens=ai_data.get('max_tokens', 500),
+                temperature=ai_data.get('temperature', 0.3),
+                history=history
+            )
+        
         return MonitorConfig(
             sites=sites,
             github=github,
             search=search,
             agent=agent,
+            ai=ai,
             storage_path=config_data.get('storage_path', 'processed_urls.json'),
             log_level=config_data.get('log_level', 'INFO')
         )
