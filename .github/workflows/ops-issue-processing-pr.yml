@@ -1,4 +1,4 @@
-name: Operations -3 Issue Processing (PR Mode)
+name: Operations -3 Issue Processing
 permissions:
   contents: write  # Required for creating branches and PRs
   issues: write
