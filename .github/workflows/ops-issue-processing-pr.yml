@@ -1,15 +1,10 @@
-name: Operations -3 Issue Processing (PR Mode)
+name: Operations -3 Issue Processing
 permissions:
   contents: write  # Required for creating branches and PRs
   issues: write
   pull-requests: write
 
-# This is an alternative version that creates PRs instead of direct pushes
-# Use this if you prefer to review automated changes before they're merged
-
 on:
-  issues:
-    types: [labeled, assigned]
   workflow_dispatch:
     inputs:
       issue_number:
@@ -104,17 +99,21 @@ jobs:
                           'labels': [label.name for label in issue.labels]
                       })
               
+              # Always set outputs, even if empty
+              issues_json = json.dumps(issues_to_process) if issues_to_process else "[]"
+              should_process = "true" if issues_to_process else "false"
+              
+              print(f"DEBUG: Setting outputs - issues={issues_json}, should_process={should_process}")
+              
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+                  f.write(f"issues={issues_json}\n")
+                  f.write(f"should_process={should_process}\n")
+              
               if issues_to_process:
-                  with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
-                      f.write(f"issues={json.dumps(issues_to_process)}\n")
-                      f.write(f"should_process=true\n")
                   print(f"Found {len(issues_to_process)} issues to process:")
                   for issue in issues_to_process:
                       print(f"  - #{issue['number']}: {issue['title']}")
               else:
-                  with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
-                      f.write(f"issues=[]\n")
-                      f.write(f"should_process=false\n")
                   print("No issues found to process")
           
           if __name__ == '__main__':
@@ -125,15 +124,22 @@ jobs:
     name: Process Issues
     runs-on: ubuntu-latest
     needs: check-issues
-    if: needs.check-issues.outputs.should_process == 'true'
+    if: needs.check-issues.outputs.should_process == 'true' && needs.check-issues.outputs.issues != '' && needs.check-issues.outputs.issues != '[]'
     
     strategy:
       matrix:
-        issue: ${{ fromJson(needs.check-issues.outputs.issues) }}
+        issue: ${{ fromJson(needs.check-issues.outputs.issues || '[]') }}
       fail-fast: false
       max-parallel: 3
     
     steps:
+      - name: Debug matrix values
+        run: |
+          echo "DEBUG: Matrix issue data:"
+          echo "  Number: ${{ matrix.issue.number }}"
+          echo "  Title: ${{ matrix.issue.title }}"
+          echo "  Labels: ${{ toJson(matrix.issue.labels) }}"
+      
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
