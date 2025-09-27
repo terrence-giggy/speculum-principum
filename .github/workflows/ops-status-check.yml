@@ -1,4 +1,4 @@
-name: Operations - Status Check
+name: Operations -X Status Check
 
 on:
   workflow_dispatch:
