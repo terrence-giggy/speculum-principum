@@ -206,17 +206,17 @@ jobs:
             
             # Add and commit changes
             git add .
-            git commit -m "docs: automated processing for issue #${ISSUE_NUMBER}
-
-- Generated deliverables for issue #${ISSUE_NUMBER}
-- Applied workflow-based document generation
-- Automated via GitHub Actions"
+            git commit -m "docs: automated processing for issue #${ISSUE_NUMBER}" \
+                       -m "- Generated deliverables for issue #${ISSUE_NUMBER}" \
+                       -m "- Applied workflow-based document generation" \
+                       -m "- Automated via GitHub Actions"
             
             # Push the branch
             git push origin "${BRANCH_NAME}"
             
             # Create pull request using GitHub CLI
-            PR_BODY="## Automated Issue Processing
+            cat > pr_body.txt << EOF
+## Automated Issue Processing
 
 This PR contains automatically generated deliverables for issue #${ISSUE_NUMBER}.
 
@@ -229,11 +229,12 @@ This PR contains automatically generated deliverables for issue #${ISSUE_NUMBER}
 Closes #${ISSUE_NUMBER}
 
 ---
-*This PR was created automatically by the issue processing workflow.*"
+*This PR was created automatically by the issue processing workflow.*
+EOF
             
             gh pr create \
               --title "Automated processing for issue #${ISSUE_NUMBER}" \
-              --body "${PR_BODY}" \
+              --body-file pr_body.txt \
               --head "${BRANCH_NAME}" \
               --base main \
               --assignee "@me"
