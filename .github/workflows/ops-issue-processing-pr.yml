@@ -1,6 +1,6 @@
 name: Operations -3 Issue Processing
 permissions:
-  contents: write  # Required for creating branches and PRs
+  contents: write
   issues: write
   pull-requests: write
 
@@ -11,6 +11,15 @@ on:
         description: 'Issue number to process (optional)'
         required: false
         type: number
+      batch_size:
+        description: 'Maximum number of issues to process'
+        required: false
+        type: number
+        default: 5
+      assignee_filter:
+        description: 'Only process issues assigned to this user (or "none" for unassigned)'
+        required: false
+        type: string
       dry_run:
         description: 'Perform dry run without making changes'
         required: false
@@ -18,134 +27,11 @@ on:
         default: true
 
 jobs:
-  check-issues:
-    name: Check for Site Monitor Issues
-    runs-on: ubuntu-latest
-    outputs:
-      issues_to_process: ${{ steps.find-issues.outputs.issues }}
-      should_process: ${{ steps.find-issues.outputs.should_process }}
-    
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-          cache: 'pip'
-      
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-      
-      - name: Find issues to process
-        id: find-issues
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-        run: |
-          # Python script to find issues and output JSON
-          ISSUES_JSON=$(python3 << 'EOF'
-          import os
-          import json
-          import sys
-          from github import Github
-          
-          def main():
-              token = os.environ.get('GITHUB_TOKEN')
-              repo_name = os.environ.get('GITHUB_REPOSITORY')
-              
-              if not token or not repo_name:
-                  print("Missing required environment variables", file=sys.stderr)
-                  sys.exit(1)
-              
-              g = Github(token)
-              repo = g.get_repo(repo_name)
-              
-              issues_to_process = []
-              
-              if os.environ.get('GITHUB_EVENT_NAME') == 'issues':
-                  event_path = os.environ.get('GITHUB_EVENT_PATH')
-                  if event_path and os.path.exists(event_path):
-                      with open(event_path, 'r') as f:
-                          event_data = json.load(f)
-                      
-                      issue = event_data.get('issue', {})
-                      labels = [label['name'] for label in issue.get('labels', [])]
-                      
-                      if 'site-monitor' in labels:
-                          issues_to_process.append({
-                              'number': issue['number'],
-                              'title': issue['title'],
-                              'labels': labels
-                          })
-              else:
-                  site_monitor_issues = repo.get_issues(
-                      state='open',
-                      labels=['site-monitor']
-                  )
-                  
-                  for issue in site_monitor_issues:
-                      if issue.assignee and issue.assignee.login == 'github-actions[bot]':
-                          continue
-                      
-                      issues_to_process.append({
-                          'number': issue.number,
-                          'title': issue.title,
-                          'labels': [label.name for label in issue.labels]
-                      })
-              
-              # Output JSON to stdout for shell capture
-              issues_json = json.dumps(issues_to_process) if issues_to_process else "[]"
-              print(issues_json)
-              
-              # Also print debug info to stderr
-              print(f"DEBUG: Found {len(issues_to_process)} issues", file=sys.stderr)
-              if issues_to_process:
-                  for issue in issues_to_process:
-                      print(f"  - #{issue['number']}: {issue['title']}", file=sys.stderr)
-          
-          if __name__ == '__main__':
-              main()
-          EOF
-          )
-          
-          # Set outputs using shell commands
-          echo "issues=${ISSUES_JSON}" >> $GITHUB_OUTPUT
-          
-          # Check if we should process (non-empty array)
-          if [ "${ISSUES_JSON}" = "[]" ]; then
-            echo "should_process=false" >> $GITHUB_OUTPUT
-            echo "No issues found to process"
-          else
-            echo "should_process=true" >> $GITHUB_OUTPUT
-            echo "Found issues to process: ${ISSUES_JSON}"
-          fi
-
   process-issues:
-    name: Process Issues
+    name: Process Site Monitor Issues
     runs-on: ubuntu-latest
-    needs: check-issues
-    if: needs.check-issues.outputs.should_process == 'true'
-    
-    strategy:
-      matrix:
-        issue: ${{ fromJson(needs.check-issues.outputs.issues || '[]') }}
-      fail-fast: false
-      max-parallel: 3
     
     steps:
-      - name: Debug matrix values
-        run: |
-          echo "DEBUG: Matrix issue data:"
-          echo "  Number: ${{ matrix.issue.number }}"
-          echo "  Title: ${{ matrix.issue.title }}"
-          echo "  Labels: ${{ toJson(matrix.issue.labels) }}"
-      
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -180,77 +66,91 @@ jobs:
           GOOGLE_SEARCH_ENGINE_ID=${GOOGLE_SEARCH_ENGINE_ID}
           EOF
       
-      - name: Process issue
-        id: process
+      - name: Find and process issues
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ISSUE_NUMBER: ${{ matrix.issue.number }}
-          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
-          echo "Processing issue #${ISSUE_NUMBER}: ${{ matrix.issue.title }}"
+          # Build command arguments
+          ARGS="--config config.yaml --verbose"
           
-          if [ "${DRY_RUN}" = "true" ]; then
-            DRY_RUN_FLAG="--dry-run"
-            echo "Running in dry-run mode"
+          # Add specific issue if provided
+          if [ -n "${{ github.event.inputs.issue_number }}" ]; then
+            ARGS="${ARGS} --issue ${{ github.event.inputs.issue_number }}"
           else
-            DRY_RUN_FLAG=""
-            echo "Running in live mode"
+            # Batch mode - find and process issues automatically
+            ARGS="${ARGS} --batch-size ${{ github.event.inputs.batch_size || 5 }}"
+            
+            # Add assignee filter if provided
+            if [ -n "${{ github.event.inputs.assignee_filter }}" ]; then
+              ARGS="${ARGS} --assignee-filter '${{ github.event.inputs.assignee_filter }}'"
+            fi
           fi
           
-          python main.py process-issues \
-            --config config.yaml \
-            --issue ${ISSUE_NUMBER} \
-            ${DRY_RUN_FLAG}
+          # Add dry-run flag if enabled
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            ARGS="${ARGS} --dry-run"
+            echo "🔍 Running in dry-run mode - no changes will be made"
+          else
+            echo "🚀 Running in live mode - changes will be committed"
+          fi
+          
+          echo "Executing: python main.py process-issues ${ARGS}"
+          python main.py process-issues ${ARGS}
       
       - name: Create Pull Request
         if: success() && github.event.inputs.dry_run != 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ISSUE_NUMBER: ${{ matrix.issue.number }}
         run: |
           # Check if there are any changes
           if [ -n "$(git status --porcelain)" ]; then
-            echo "Changes detected, creating PR..."
+            echo "📝 Changes detected, creating PR..."
             
-            # Create a new branch for this issue
-            BRANCH_NAME="automated/issue-${ISSUE_NUMBER}-$(date +%s)"
+            # Create a new branch for this processing run
+            BRANCH_NAME="automated/issue-processing-$(date +%Y%m%d-%H%M%S)"
             git checkout -b "${BRANCH_NAME}"
             
             # Add and commit changes
             git add .
-            git commit -m "docs: automated processing for issue #${ISSUE_NUMBER}" \
-                       -m "- Generated deliverables for issue #${ISSUE_NUMBER}" \
+            git commit -m "docs: automated issue processing" \
+                       -m "- Generated deliverables for site-monitor issues" \
                        -m "- Applied workflow-based document generation" \
                        -m "- Automated via GitHub Actions"
             
             # Push the branch
             git push origin "${BRANCH_NAME}"
             
-            # Create pull request using template
-            envsubst < .github/templates/pr-body-issue-processing.md > pr_body.txt
+            # Create pull request
+            PR_TITLE="Automated issue processing - $(date +%Y-%m-%d)"
+            PR_BODY="This PR contains automatically generated deliverables from processing site-monitor issues.
+
+            **Processing Details:**
+            - Trigger: Manual workflow dispatch
+            - Dry run: ${{ github.event.inputs.dry_run }}
+            - Issue: ${{ github.event.inputs.issue_number || 'Batch mode' }}
+            - Batch size: ${{ github.event.inputs.batch_size || 5 }}
+            - Assignee filter: ${{ github.event.inputs.assignee_filter || 'None' }}
+
+            Generated by GitHub Actions workflow."
             
             gh pr create \
-              --title "Automated processing for issue #${ISSUE_NUMBER}" \
-              --body-file pr_body.txt \
+              --title "${PR_TITLE}" \
+              --body "${PR_BODY}" \
               --head "${BRANCH_NAME}" \
               --base main \
               --assignee "@me"
             
-            echo "Pull request created successfully"
+            echo "✅ Pull request created successfully"
           else
-            echo "No changes to commit"
+            echo "ℹ️ No changes to commit - no deliverables were generated"
           fi
 
-      - name: Report processing results
+      - name: Report results
         if: always()
-        env:
-          ISSUE_NUMBER: ${{ matrix.issue.number }}
-          JOB_STATUS: ${{ job.status }}
         run: |
-          echo "Issue #${ISSUE_NUMBER} processing completed with status: ${JOB_STATUS}"
-          
-          if [ "${JOB_STATUS}" = "success" ]; then
-            echo "✅ Successfully processed issue #${ISSUE_NUMBER}"
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "✅ Issue processing workflow completed successfully"
           else
-            echo "❌ Failed to process issue #${ISSUE_NUMBER}"
+            echo "❌ Issue processing workflow failed"
           fi
