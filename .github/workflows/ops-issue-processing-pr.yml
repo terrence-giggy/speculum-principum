@@ -138,8 +138,7 @@ jobs:
               --title "${PR_TITLE}" \
               --body "${PR_BODY}" \
               --head "${BRANCH_NAME}" \
-              --base main \
-              --assignee "@me"
+              --base main
             
             echo "✅ Pull request created successfully"
           else
