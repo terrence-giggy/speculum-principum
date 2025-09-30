@@ -385,11 +385,6 @@ output:
   branch_naming: "security-assessment-{issue_number}"
 
 deliverables:
-  - name: "threat_model"
-    template: "security/threat_model.md"
-    required: true
-    description: "Threat modeling and attack vector analysis"
-    
   - name: "vulnerability_assessment"
     template: "security/vulnerability_assessment.md"
     required: true
@@ -538,7 +533,6 @@ trigger_labels:
 templates/
 ├── base_deliverable.md           # Common base template
 ├── security/
-│   ├── threat_model.md
 │   ├── vulnerability_assessment.md
 │   └── recommendations.md
 ├── technical/
@@ -600,7 +594,6 @@ version: "2.1.0"  # Semantic versioning
 changelog:
   "2.1.0":
     - "Added compliance checklist deliverable"
-    - "Enhanced threat modeling template"
     - "Updated validation requirements"
   "2.0.0":
     - "Major restructure for new security framework"
@@ -624,11 +617,11 @@ python main.py benchmark-workflow --workflow security-assessment
 # Include usage examples
 examples:
   - issue_labels: ["security", "web-application"]
-    expected_deliverables: ["threat_model", "vulnerability_assessment"]
+    expected_deliverables: ["vulnerability_assessment"]
     estimated_time: "2-3 hours"
     
   - issue_labels: ["security", "compliance", "financial"]
-    expected_deliverables: ["threat_model", "vulnerability_assessment", "compliance_checklist"]
+    expected_deliverables: ["vulnerability_assessment", "compliance_checklist"]
     estimated_time: "4-6 hours"
 ```
 

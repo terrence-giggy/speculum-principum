@@ -28,6 +28,10 @@ from src.utils.cli_helpers import (
     safe_execute_cli_command, 
     CliResult
 )
+from src.utils.specialist_config_cli import (
+    setup_specialist_config_parser,
+    handle_specialist_config_command
+)
 from src.utils.logging_config import setup_logging
 
 
@@ -55,7 +59,11 @@ def setup_argument_parser() -> argparse.ArgumentParser:
     
     # Issue processing commands
     setup_process_issues_parser(subparsers)
+    setup_process_copilot_issues_parser(subparsers)
     setup_assign_workflows_parser(subparsers)
+    
+    # Specialist workflow configuration commands
+    setup_specialist_config_parser(subparsers)
     
     return parser
 
@@ -200,6 +208,46 @@ def setup_process_issues_parser(subparsers) -> None:
         '--find-issues-only', 
         action='store_true', 
         help='Find and output site-monitor issues without processing (for CI/CD)'
+    )
+
+
+
+def setup_process_copilot_issues_parser(subparsers) -> None:
+    """Set up process-copilot-issues command parser."""
+    copilot_parser = subparsers.add_parser(
+        'process-copilot-issues', 
+        help='Process issues assigned to GitHub Copilot for AI analysis'
+    )
+    copilot_parser.add_argument(
+        '--config', 
+        default='config.yaml', 
+        help='Configuration file path'
+    )
+    copilot_parser.add_argument(
+        '--specialist-filter', 
+        choices=['intelligence-analyst', 'osint-researcher', 'target-profiler', 'business-analyst'],
+        help='Filter by specialist type'
+    )
+    copilot_parser.add_argument(
+        '--batch-size', 
+        type=int, 
+        default=5, 
+        help='Maximum issues to process in batch mode'
+    )
+    copilot_parser.add_argument(
+        '--dry-run', 
+        action='store_true', 
+        help='Show what would be processed without making changes'
+    )
+    copilot_parser.add_argument(
+        '--verbose', '-v', 
+        action='store_true', 
+        help='Show detailed progress information'
+    )
+    copilot_parser.add_argument(
+        '--continue-on-error', 
+        action='store_true', 
+        help='Continue processing even if individual issues fail'
     )
 
 
@@ -646,6 +694,158 @@ def handle_process_issues_command(args, github_token: str, repo_name: str) -> No
         sys.exit(exit_code)
 
 
+def handle_process_copilot_issues_command(args, github_token: str, repo_name: str) -> None:
+    """Handle process-copilot-issues command."""
+    
+    def process_copilot_issues_command() -> CliResult:
+        # Validate configuration and environment
+        config_result = ConfigValidator.validate_config_file(args.config)
+        if not config_result.success:
+            return config_result
+        
+        env_result = ConfigValidator.validate_environment()
+        if not env_result.success:
+            return env_result
+        
+        # Initialize components
+        reporter = ProgressReporter(args.verbose)
+        
+        try:
+            # Create processor
+            processor = GitHubIntegratedIssueProcessor(
+                github_token=github_token,
+                repository=repo_name,
+                config_path=args.config
+            )
+            
+            # Create batch processor
+            from src.core.batch_processor import BatchProcessor
+            batch_processor = BatchProcessor(processor, processor.github, config=None)
+            
+            # Validate workflow directory from config
+            config = processor.config
+            workflow_dir = getattr(config, 'workflow_directory', 'docs/workflow/deliverables')
+            
+            workflow_result = ConfigValidator.validate_workflow_directory(workflow_dir)
+            if not workflow_result.success:
+                return workflow_result
+            
+            if args.verbose:
+                reporter.show_info(f"Using workflow directory: {workflow_dir}")
+                if workflow_result.data:
+                    reporter.show_info(f"Found {workflow_result.data['workflow_count']} workflow(s)")
+            
+            # Find Copilot-assigned issues
+            reporter.start_operation("Finding Copilot-assigned issues")
+            
+            try:
+                copilot_issues = processor.get_copilot_assigned_issues()
+                
+                if not copilot_issues:
+                    reporter.complete_operation(True)
+                    return CliResult(
+                        success=True,
+                        message="✅ No Copilot-assigned issues found for processing",
+                        data={'issues': [], 'count': 0}
+                    )
+                
+                # Apply specialist filter if provided
+                if args.specialist_filter:
+                    original_count = len(copilot_issues)
+                    copilot_issues = [
+                        issue for issue in copilot_issues
+                        if args.specialist_filter in issue.get('labels', [])
+                        or any(args.specialist_filter.replace('-', '_') in label.replace('-', '_')
+                               for label in issue.get('labels', []))
+                    ]
+                    
+                    if args.verbose:
+                        reporter.show_info(f"Filtered from {original_count} to {len(copilot_issues)} issues for specialist: {args.specialist_filter}")
+                
+                if not copilot_issues:
+                    filter_msg = f" for specialist '{args.specialist_filter}'" if args.specialist_filter else ""
+                    reporter.complete_operation(True)
+                    return CliResult(
+                        success=True,
+                        message=f"✅ No Copilot-assigned issues found{filter_msg}",
+                        data={'issues': [], 'count': 0}
+                    )
+                
+                # Limit issues processed
+                limited_issues = copilot_issues[:args.batch_size]
+                
+                if args.verbose:
+                    reporter.show_info(f"Processing {len(limited_issues)} Copilot-assigned issues")
+                    for issue in limited_issues:
+                        reporter.show_info(f"  - Issue #{issue['number']}: {issue['title']}")
+                
+                reporter.complete_operation(True)
+                
+                # Process issues using batch processor
+                if args.dry_run:
+                    reporter.start_operation("Dry run - showing what would be processed")
+                else:
+                    reporter.start_operation(f"Processing {len(limited_issues)} Copilot-assigned issues")
+                
+                batch_metrics, batch_results = batch_processor.process_copilot_assigned_issues(
+                    specialist_filter=args.specialist_filter,
+                    dry_run=args.dry_run
+                )
+                
+                reporter.complete_operation(batch_metrics.error_count == 0)
+                
+                # Format results
+                results = [
+                    {
+                        'status': result.status.value,
+                        'issue': result.issue_number,
+                        'workflow': result.workflow_name,
+                        'files_created': result.created_files or [],
+                        'error': result.error_message,
+                        'clarification': result.clarification_needed
+                    }
+                    for result in batch_results
+                ]
+                
+                # Format batch results
+                formatted_results = IssueResultFormatter.format_batch_results(results)
+                
+                # Check for errors
+                error_count = batch_metrics.error_count
+                success = error_count == 0 or args.continue_on_error
+                
+                return CliResult(
+                    success=success,
+                    message=formatted_results,
+                    data={
+                        'results': results,
+                        'error_count': error_count,
+                        'metrics': batch_metrics,
+                        'specialist_filter': args.specialist_filter
+                    }
+                )
+                
+            except Exception as e:
+                reporter.complete_operation(False)
+                return CliResult(
+                    success=False,
+                    message=f"❌ Failed to process Copilot-assigned issues: {str(e)}",
+                    error_code=1
+                )
+        
+        except Exception as e:
+            return CliResult(
+                success=False,
+                message=f"Copilot issue processing failed: {str(e)}",
+                error_code=1
+            )
+    
+    # Execute the command safely
+    exit_code = safe_execute_cli_command(process_copilot_issues_command)
+    if exit_code != 0:
+        sys.exit(exit_code)
+
+
 def handle_assign_workflows_command(args, github_token: str, repo_name: str) -> None:
     """Handle assign-workflows command."""
     
@@ -873,8 +1073,13 @@ def main():
             handle_cleanup_command(args, github_token)
         elif args.command == 'process-issues':
             handle_process_issues_command(args, github_token, repo_name)
+        elif args.command == 'process-copilot-issues':
+            handle_process_copilot_issues_command(args, github_token, repo_name)
         elif args.command == 'assign-workflows':
             handle_assign_workflows_command(args, github_token, repo_name)
+        elif args.command == 'specialist-config':
+            exit_code = handle_specialist_config_command(args)
+            sys.exit(exit_code)
         else:
             print(f"Unknown command: {args.command}", file=sys.stderr)
             parser.print_help()
