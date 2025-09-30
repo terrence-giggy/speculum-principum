@@ -86,25 +86,77 @@ class AIHistoryConfig:
 
 @dataclass
 class AIConfidenceThresholds:
-    """AI confidence thresholds for workflow assignment"""
+    """AI confidence thresholds for automated processing"""
     auto_assign: float = 0.8
     request_review: float = 0.6
+    entity_extraction: float = 0.7
+    relationship_mapping: float = 0.6
+    auto_assign_workflow: float = 0.8
+    require_human_review: float = 0.5
+
+
+@dataclass
+class AIModelConfig:
+    """AI model configuration for different use cases"""
+    content_extraction: str = "gpt-4o"
+    specialist_analysis: str = "gpt-4o"
+    document_generation: str = "gpt-4o"
+    workflow_assignment: str = "gpt-4o"
+
+
+@dataclass
+class AISettingsConfig:
+    """AI performance and behavior settings"""
+    temperature: float = 0.3
+    max_tokens: int = 3000
+    timeout_seconds: int = 30
+    retry_count: int = 3
+    enable_logging: bool = True
+
+
+@dataclass
+class AIExtractionFocusConfig:
+    """AI content extraction focus configuration"""
+    default: Optional[List[str]] = None
+    intelligence_analyst: Optional[List[str]] = None
+    osint_researcher: Optional[List[str]] = None
+    target_profiler: Optional[List[str]] = None
+    threat_hunter: Optional[List[str]] = None
+    
+    def __post_init__(self):
+        if self.default is None:
+            self.default = ["entities", "relationships", "events", "indicators"]
+        if self.intelligence_analyst is None:
+            self.intelligence_analyst = ["threat_actors", "attack_vectors", "targets", "capabilities"]
+        if self.osint_researcher is None:
+            self.osint_researcher = ["digital_footprint", "public_records", "technical_infrastructure"]
+        if self.target_profiler is None:
+            self.target_profiler = ["organizational_structure", "key_personnel", "business_operations"]
+        if self.threat_hunter is None:
+            self.threat_hunter = ["iocs", "ttps", "attack_patterns", "threat_indicators"]
 
 
 @dataclass 
 class AIConfig:
-    """AI configuration for workflow assignment"""
+    """Enhanced AI configuration for content extraction and workflow assignment"""
     enabled: bool = False
-    model: str = "gpt-4o"
+    provider: str = "github-models"  # github-models, openai, anthropic
+    models: Optional[AIModelConfig] = None
+    settings: Optional[AISettingsConfig] = None
     confidence_thresholds: Optional[AIConfidenceThresholds] = None
-    max_tokens: int = 500
-    temperature: float = 0.3
+    extraction_focus: Optional[AIExtractionFocusConfig] = None
     history: Optional[AIHistoryConfig] = None
     
     def __post_init__(self):
         """Initialize default values after dataclass creation"""
+        if self.models is None:
+            self.models = AIModelConfig()
+        if self.settings is None:
+            self.settings = AISettingsConfig()
         if self.confidence_thresholds is None:
             self.confidence_thresholds = AIConfidenceThresholds()
+        if self.extraction_focus is None:
+            self.extraction_focus = AIExtractionFocusConfig()
         if self.history is None:
             self.history = AIHistoryConfig()
 
@@ -495,12 +547,48 @@ class ConfigLoader:
                     file_path=history_data.get('file_path', '.github/ai_assignment_history.json')
                 )
             
+            # Handle models configuration
+            models = None
+            if 'models' in ai_data:
+                models_data = ai_data['models']
+                models = AIModelConfig(
+                    content_extraction=models_data.get('content_extraction', 'gpt-4o'),
+                    specialist_analysis=models_data.get('specialist_analysis', 'gpt-4o'),
+                    document_generation=models_data.get('document_generation', 'gpt-4o'),
+                    workflow_assignment=models_data.get('workflow_assignment', 'gpt-4o')
+                )
+            
+            # Handle settings configuration
+            settings = None
+            if 'settings' in ai_data:
+                settings_data = ai_data['settings']
+                settings = AISettingsConfig(
+                    temperature=settings_data.get('temperature', 0.3),
+                    max_tokens=settings_data.get('max_tokens', 3000),
+                    timeout_seconds=settings_data.get('timeout_seconds', 30),
+                    retry_count=settings_data.get('retry_count', 3),
+                    enable_logging=settings_data.get('enable_logging', True)
+                )
+            
+            # Handle extraction focus configuration
+            extraction_focus = None
+            if 'extraction_focus' in ai_data:
+                focus_data = ai_data['extraction_focus']
+                extraction_focus = AIExtractionFocusConfig(
+                    default=focus_data.get('default'),
+                    intelligence_analyst=focus_data.get('intelligence_analyst'),
+                    osint_researcher=focus_data.get('osint_researcher'),
+                    target_profiler=focus_data.get('target_profiler'),
+                    threat_hunter=focus_data.get('threat_hunter')
+                )
+            
             ai = AIConfig(
                 enabled=ai_data.get('enabled', False),
-                model=ai_data.get('model', 'gpt-4o'),
+                provider=ai_data.get('provider', 'github-models'),
+                models=models,
+                settings=settings,
                 confidence_thresholds=confidence_thresholds,
-                max_tokens=ai_data.get('max_tokens', 500),
-                temperature=ai_data.get('temperature', 0.3),
+                extraction_focus=extraction_focus,
                 history=history
             )
         

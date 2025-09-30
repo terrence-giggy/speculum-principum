@@ -228,6 +228,59 @@ class BatchProcessor:
         
         return self.process_issues(issues, dry_run=dry_run)
     
+    def process_copilot_assigned_issues(self,
+                                       specialist_filter: Optional[str] = None,
+                                       dry_run: bool = False) -> Tuple[BatchMetrics, List[ProcessingResult]]:
+        """
+        Process all Copilot-assigned issues with AI content extraction.
+        
+        Args:
+            specialist_filter: Filter by specialist type (intelligence-analyst, osint-researcher, etc.)
+            dry_run: If True, only analyze what would be processed
+            
+        Returns:
+            Tuple of (batch metrics, list of processing results)
+        """
+        # Get Copilot-assigned issues from the processor
+        if hasattr(self.issue_processor, 'get_copilot_assigned_issues'):
+            issues = self.issue_processor.get_copilot_assigned_issues()
+        else:
+            self.logger.error("Issue processor does not support Copilot assignment detection")
+            return BatchMetrics(), []
+        
+        if not issues:
+            self.logger.info("No Copilot-assigned issues found for processing")
+            return BatchMetrics(), []
+        
+        # Apply specialist filter if provided
+        if specialist_filter:
+            filtered_issues = []
+            for issue in issues:
+                labels = issue.get('labels', [])
+                specialist_labels = [
+                    'intelligence-analyst', 'osint-researcher', 'target-profiler',
+                    'threat-hunter', 'business-analyst'
+                ]
+                
+                # Check if issue has the requested specialist label
+                if specialist_filter in labels or any(
+                    label for label in labels 
+                    if specialist_filter.replace('-', '_') in label.replace('-', '_')
+                ):
+                    filtered_issues.append(issue)
+            
+            issues = filtered_issues
+            self.logger.info(f"Filtered to {len(issues)} issues for specialist: {specialist_filter}")
+        
+        if not issues:
+            self.logger.info(f"No Copilot-assigned issues found matching specialist filter: {specialist_filter}")
+            return BatchMetrics(), []
+        
+        # Extract issue numbers for batch processing
+        issue_numbers = [issue['number'] for issue in issues]
+        
+        return self.process_issues(issue_numbers, dry_run=dry_run)
+    
     def process_issues(self, 
                       issue_numbers: List[int],
                       dry_run: bool = False) -> Tuple[BatchMetrics, List[ProcessingResult]]:

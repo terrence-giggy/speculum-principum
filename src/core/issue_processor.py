@@ -261,6 +261,21 @@ class IssueProcessor:
             log_exception(self.logger, error_msg, e)
             raise IssueProcessingError(error_msg, error_code="DELIVERABLE_GENERATOR_ERROR") from e
 
+        # Initialize content extraction agent if AI is configured
+        self.content_extraction_agent: Optional['ContentExtractionAgent'] = None
+        self.enable_ai_extraction = False
+        try:
+            if self.config.ai and hasattr(self.config.ai, 'enabled') and self.config.ai.enabled:
+                from ..agents.content_extraction_agent import ContentExtractionAgent
+                # We'll need github_token for AI client, this will be passed by subclass
+                self.enable_ai_extraction = True
+                self.logger.info("AI content extraction enabled (agent will be initialized with GitHub token)")
+            else:
+                self.logger.info("AI content extraction disabled in configuration")
+        except Exception as e:
+            self.logger.warning(f"Failed to initialize AI content extraction: {e}")
+            self.enable_ai_extraction = False
+
         # Initialize git manager if enabled
         self.enable_git = enable_git
         self.enable_state_saving = enable_state_saving
@@ -448,7 +463,18 @@ class IssueProcessor:
                     status=IssueProcessingStatus.PENDING,
                     error_message="Issue does not have required 'site-monitor' label"
                 )
-            
+
+            # Perform AI content extraction if enabled
+            extracted_content = None
+            if self.enable_ai_extraction and self.content_extraction_agent:
+                try:
+                    extracted_content = self._extract_issue_content(issue_data)
+                    self.logger.info(f"Content extraction completed for issue #{issue_number}")
+                except Exception as e:
+                    self.logger.warning(f"Content extraction failed for issue #{issue_number}: {e}")
+                    # Continue without extracted content - maintain backward compatibility
+                    extracted_content = None
+
             # Find matching workflow with retry logic
             try:
                 workflow_result = self._find_workflow_with_retry(issue_data)
@@ -482,7 +508,7 @@ class IssueProcessor:
             
             # Execute workflow with comprehensive error handling
             try:
-                execution_result = self._execute_workflow_with_recovery(issue_data, workflow_info)
+                execution_result = self._execute_workflow_with_recovery(issue_data, workflow_info, extracted_content)
             except WorkflowExecutionError as e:
                 error_msg = f"Workflow execution failed: {e}"
                 self.logger.error(error_msg)
@@ -654,13 +680,14 @@ class IssueProcessor:
         """
         return self.workflow_matcher.get_best_workflow_match(issue_data.labels)
 
-    def _execute_workflow_with_recovery(self, issue_data: IssueData, workflow_info) -> Dict[str, Any]:
+    def _execute_workflow_with_recovery(self, issue_data: IssueData, workflow_info, extracted_content=None) -> Dict[str, Any]:
         """
         Execute workflow with error recovery and partial success handling.
         
         Args:
             issue_data: Issue data for processing
             workflow_info: Matched workflow information object
+            extracted_content: Optional AI-extracted structured content
             
         Returns:
             Dictionary with execution results including created files
@@ -671,13 +698,13 @@ class IssueProcessor:
         self.logger.info(f"Executing workflow '{workflow_info.name}' for issue #{issue_data.number}")
         
         try:
-            return self._execute_workflow(issue_data, workflow_info)
+            return self._execute_workflow(issue_data, workflow_info, extracted_content)
         except Exception as e:
             # Try to recover by falling back to basic workflow execution
             self.logger.warning(f"Primary workflow execution failed, attempting recovery: {e}")
             
             try:
-                return self._execute_basic_workflow(issue_data, workflow_info)
+                return self._execute_basic_workflow(issue_data, workflow_info, extracted_content)
             except Exception as recovery_error:
                 error_msg = f"Workflow execution and recovery both failed: {recovery_error}"
                 log_exception(self.logger, error_msg, recovery_error)
@@ -687,7 +714,7 @@ class IssueProcessor:
                     error_code="WORKFLOW_EXECUTION_FAILED"
                 ) from recovery_error
 
-    def _execute_basic_workflow(self, issue_data: IssueData, workflow_info) -> Dict[str, Any]:
+    def _execute_basic_workflow(self, issue_data: IssueData, workflow_info, extracted_content=None) -> Dict[str, Any]:
         """
         Execute a basic version of the workflow with minimal dependencies.
         
@@ -797,7 +824,7 @@ This deliverable was generated using basic recovery mode due to processing const
             f"You can find workflow definitions in `docs/workflow/deliverables/`"
         )
     
-    def _execute_workflow(self, issue_data: IssueData, workflow_info) -> Dict[str, Any]:
+    def _execute_workflow(self, issue_data: IssueData, workflow_info, extracted_content=None) -> Dict[str, Any]:
         """
         Execute the matched workflow for the given issue.
         
@@ -848,7 +875,7 @@ This deliverable was generated using basic recovery mode due to processing const
                 file_path = output_dir / file_name
                 
                 # Generate content based on issue and deliverable spec
-                content = self._generate_deliverable_content(issue_data, deliverable, workflow_info)
+                content = self._generate_deliverable_content(issue_data, deliverable, workflow_info, extracted_content)
                 
                 with open(file_path, 'w', encoding='utf-8') as f:
                     f.write(content)
@@ -900,7 +927,8 @@ This deliverable was generated using basic recovery mode due to processing const
     def _generate_deliverable_content(self, 
                                     issue_data: IssueData, 
                                     deliverable_spec: Dict[str, Any],
-                                    workflow_info) -> str:
+                                    workflow_info,
+                                    extracted_content=None) -> str:
         """
         Generate content for a specific deliverable using the DeliverableGenerator.
         
@@ -908,6 +936,7 @@ This deliverable was generated using basic recovery mode due to processing const
             issue_data: Issue data for context
             deliverable_spec: Deliverable specification from workflow
             workflow_info: Full workflow information object
+            extracted_content: Optional AI-extracted structured content
             
         Returns:
             Generated content string
@@ -927,13 +956,60 @@ This deliverable was generated using basic recovery mode due to processing const
         )
         
         # Use the deliverable generator to create content
+        additional_context = {}
+        if extracted_content:
+            additional_context['extracted_content'] = extracted_content
+            self.logger.info("Passing AI-extracted content to deliverable generator")
+        
         return self.deliverable_generator.generate_deliverable(
             issue_data=issue_data,
             deliverable_spec=spec,
             workflow_info=workflow_info,
-            additional_context={}
+            additional_context=additional_context
         )
     
+    def _extract_issue_content(self, issue_data: IssueData) -> Optional[Any]:
+        """
+        Extract structured content from issue using AI content extraction.
+        
+        Args:
+            issue_data: Issue data to extract content from
+            
+        Returns:
+            Extracted structured content or None if extraction fails
+        """
+        if not self.content_extraction_agent:
+            self.logger.warning("Content extraction requested but agent not initialized")
+            return None
+        
+        try:
+            # Convert IssueData to dictionary format expected by extraction agent
+            issue_dict = {
+                'number': issue_data.number,
+                'title': issue_data.title,
+                'body': issue_data.body,
+                'labels': [{'name': label} for label in issue_data.labels],
+                'assignees': [{'login': assignee} for assignee in issue_data.assignees],
+                'created_at': issue_data.created_at.isoformat(),
+                'updated_at': issue_data.updated_at.isoformat(),
+                'url': issue_data.url
+            }
+            
+            # Perform content extraction
+            extraction_result = self.content_extraction_agent.extract_content(issue_dict)
+            
+            if extraction_result.success and extraction_result.structured_content:
+                self.logger.info(f"Successfully extracted content with {len(extraction_result.structured_content.entities)} entities, "
+                               f"{len(extraction_result.structured_content.relationships)} relationships")
+                return extraction_result.structured_content
+            else:
+                self.logger.warning(f"Content extraction failed: {extraction_result.error_message}")
+                return None
+                
+        except Exception as e:
+            log_exception(self.logger, f"Content extraction error for issue #{issue_data.number}", e)
+            return None
+
     def _slugify(self, text: str) -> str:
         """
         Convert text to a URL-friendly slug.
@@ -1095,6 +1171,21 @@ class GitHubIntegratedIssueProcessor(IssueProcessor):
             error_msg = f"Failed to initialize GitHub client: {e}"
             self.logger.error(error_msg)
             raise IssueProcessingError(error_msg, error_code="GITHUB_INIT_FAILED") from e
+        
+        # Initialize AI content extraction agent if enabled
+        if self.enable_ai_extraction and self.config.ai:
+            try:
+                from ..agents.content_extraction_agent import ContentExtractionAgent
+                self.content_extraction_agent = ContentExtractionAgent(
+                    github_token=github_token,
+                    ai_config=self.config.ai,
+                    enable_validation=True
+                )
+                self.logger.info("AI content extraction agent initialized")
+            except Exception as e:
+                self.logger.warning(f"Failed to initialize AI content extraction agent: {e}")
+                self.enable_ai_extraction = False
+                self.content_extraction_agent = None
     
     def process_github_issue(self, issue_number: int) -> ProcessingResult:
         """
@@ -1330,6 +1421,98 @@ class GitHubIntegratedIssueProcessor(IssueProcessor):
     
 
     
+    def get_copilot_assigned_issues(self, limit: Optional[int] = None) -> List[Dict[str, Any]]:
+        """
+        Get issues assigned to GitHub Copilot for AI processing.
+        
+        Args:
+            limit: Maximum number of issues to return
+            
+        Returns:
+            List of Copilot-assigned issue data
+        """
+        try:
+            # Query issues assigned to Copilot using direct repo access
+            copilot_usernames = ['github-copilot[bot]', 'copilot', 'github-actions[bot]']
+            
+            issues = []
+            # Get all open issues and filter by assignee
+            all_issues = self.github.repo.get_issues(state='open')
+            
+            for issue in all_issues:
+                if issue.assignee and issue.assignee.login in copilot_usernames:
+                    if self._should_process_copilot_issue(issue):
+                        issues.append(self._convert_issue_to_dict(issue))
+                        if limit and len(issues) >= limit:
+                            return issues[:limit]
+            
+            self.logger.info(f"Found {len(issues)} Copilot-assigned processable issues")
+            return issues
+        except Exception as e:
+            self.logger.error(f"Failed to get Copilot-assigned issues: {e}")
+            return []
+    
+    def is_copilot_assigned(self, issue_data: Union[Dict[str, Any], Any]) -> bool:
+        """
+        Check if issue is assigned to GitHub Copilot.
+        
+        Args:
+            issue_data: Issue data or GitHub issue object
+            
+        Returns:
+            True if assigned to Copilot
+        """
+        if isinstance(issue_data, dict):
+            assignee = issue_data.get('assignee')
+        else:
+            assignee = getattr(issue_data, 'assignee', None)
+            if assignee:
+                assignee = assignee.login if hasattr(assignee, 'login') else str(assignee)
+        
+        copilot_identifiers = ['github-copilot[bot]', 'copilot', 'github-actions[bot]']
+        return assignee in copilot_identifiers
+    
+    def _should_process_copilot_issue(self, issue) -> bool:
+        """
+        Determine if Copilot-assigned issue should be processed.
+        
+        Args:
+            issue: GitHub issue object
+            
+        Returns:
+            True if issue should be processed
+        """
+        # Check for required labels or content indicators
+        labels = {label.name for label in issue.labels}
+        content_indicators = ['intelligence', 'research', 'analysis', 'target', 'osint', 'site-monitor']
+        
+        # Must have at least one processing indicator
+        return bool(labels.intersection(content_indicators) or 
+                   any(indicator in (issue.title + issue.body).lower() 
+                       for indicator in content_indicators))
+    
+    def _convert_issue_to_dict(self, issue) -> Dict[str, Any]:
+        """
+        Convert GitHub issue object to dictionary format.
+        
+        Args:
+            issue: GitHub issue object
+            
+        Returns:
+            Issue data dictionary
+        """
+        return {
+            'number': issue.number,
+            'title': issue.title,
+            'body': issue.body or '',
+            'labels': [label.name for label in issue.labels],
+            'assignees': [assignee.login for assignee in issue.assignees] if issue.assignees else [],
+            'assignee': issue.assignee.login if issue.assignee else None,
+            'created_at': issue.created_at.isoformat(),
+            'updated_at': issue.updated_at.isoformat(),
+            'url': issue.html_url
+        }
+
     def get_processable_issues(self,
                               assignee_filter: Optional[str] = None,
                               additional_labels: Optional[List[str]] = None,
@@ -1389,3 +1572,4 @@ class GitHubIntegratedIssueProcessor(IssueProcessor):
         except Exception as e:
             self.logger.error(f"Failed to get processable issues: {e}")
             return []
+
